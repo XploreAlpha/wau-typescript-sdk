@@ -1,0 +1,23 @@
+# Node / TypeScript
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Coverage
+coverage/
+*.lcov
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# buf generated
+/src/gen/
+
+# Local config
+.env
+.env.local
+*.log
