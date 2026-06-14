@@ -1,131 +1,157 @@
 /**
- * DTO 定义 — 跟 wau-go-sdk types.go 字段 1:1 对应
+ * DTO 类 — 跟 wau-go-sdk types.go 字段 1:1 对应
  * 所有字段以 WAU-core-kernel 真相源为准
  */
 
-export interface HealthResponse {
-  status: string;
-  version: string;
-  uptime: number;
-  redis: string;
-  error?: string;
+export class HealthResponse {
+  constructor(
+    public status: string = "",
+    public version: string = "",
+    public uptime: number = 0,
+    public redis: string = "",
+    public error?: string
+  ) {}
 }
 
-export interface KernelInfo {
-  version: string;
-  startTime: string;
-  uptime: number;
-  agentsCount: number;
-  tasksCount: number;
+export class KernelInfo {
+  constructor(
+    public version: string = "",
+    public startTime: string = "",
+    public uptime: number = 0,
+    public agentsCount: number = 0,
+    public tasksCount: number = 0
+  ) {}
 }
 
-export interface Agent {
-  name: string;
-  id?: string;
-  url?: string;
-  description?: string;
-  skills?: string[];
-  universes?: string[];
-  trust?: number;
-  status?: string;
-  lastSeen?: string;
+export class Agent {
+  constructor(
+    public name: string = "",
+    public id: string = "",
+    public url: string = "",
+    public description: string = "",
+    public skills: string[] = [],
+    public universes: string[] = [],
+    public trust: number = 0,
+    public status: string = "",
+    public lastSeen: string = ""
+  ) {}
 }
 
-export interface AgentListResponse {
-  agents: Agent[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
+export class AgentListResponse {
+  constructor(
+    public agents: Agent[] = [],
+    public total: number = 0,
+    public page: number = 1,
+    public pageSize: number = 10,
+    public totalPages: number = 1
+  ) {}
 }
 
-export interface PageOptions {
-  page?: number; // 1-based; default 1
-  pageSize?: number; // default 10, max 100
-  skill?: string;
-  status?: string;
-  search?: string;
+export class PageOptions {
+  /** 1-based; default 1 */
+  public page?: number;
+  /** default 10, max 100 */
+  public pageSize?: number;
+  public skill?: string;
+  public status?: string;
+  public search?: string;
 }
 
-export interface AgentRegisterRequest {
-  name: string;
-  url: string;
-  description?: string;
-  skills?: string[];
-  universes?: string[];
+export class AgentRegisterRequest {
+  constructor(
+    public name: string = "",
+    public url: string = "",
+    public description: string = "",
+    public skills: string[] = [],
+    public universes: string[] = []
+  ) {}
 }
 
-export interface AgentScore {
-  name: string;
-  totalScore?: number;
-  trustScore?: number;
-  skillMatch?: number;
-  healthScore?: number;
-  loadScore?: number;
+export class AgentScore {
+  constructor(
+    public name: string = "",
+    public totalScore: number = 0,
+    public trustScore: number = 0,
+    public skillMatch: number = 0,
+    public healthScore: number = 0,
+    public loadScore: number = 0
+  ) {}
 }
 
-export interface AgentLoad {
-  activeTasks?: number;
-  maxCapacity?: number;
-  cpuUsage?: number;
-  memoryUsage?: number;
+export class AgentLoad {
+  constructor(
+    public activeTasks: number = 0,
+    public maxCapacity: number = 10,
+    public cpuUsage: number = 0,
+    public memoryUsage: number = 0
+  ) {}
 }
 
-export interface AgentStatus {
-  name: string;
-  status: string;
-  trust: number;
-  load: AgentLoad;
-  circuit: string;
+export class AgentStatus {
+  constructor(
+    public name: string = "",
+    public status: string = "",
+    public trust: number = 0,
+    public load: AgentLoad = new AgentLoad(),
+    public circuit: string = "closed"
+  ) {}
 }
 
-export interface Task {
-  taskId: string;
-  message?: string;
-  sourcePeer?: string;
-  sourceAgentId?: string;
-  status?: string;
-  assignedAgent?: string;
-  result?: string;
-  createdAt?: number;
-  updatedAt?: number;
-  requiredSkills?: string[];
+export class Task {
+  constructor(
+    public taskId: string = "",
+    public message: string = "",
+    public sourcePeer: string = "",
+    public sourceAgentId: string = "",
+    public status: string = "",
+    public assignedAgent: string = "",
+    public result: string = "",
+    public createdAt: number = 0,
+    public updatedAt: number = 0,
+    public requiredSkills: string[] = []
+  ) {}
 }
 
 /**
  * L4 提交请求 — 字段以 kernel 真相源为准 (Prompt + TimeoutMs)
  * v0.6.0 M3 关键修正: 跟 wau-cli 旧 DTO {message, sourcePeer, ...} 不一致
  */
-export interface SubmitRequest {
-  prompt: string;
-  timeoutMs?: number;
+export class SubmitRequest {
+  constructor(
+    public prompt: string,
+    public timeoutMs?: number
+  ) {}
 }
 
-export interface Candidate {
-  name: string;
-  score: number;
-  reason: string;
+export class Candidate {
+  constructor(
+    public name: string = "",
+    public score: number = 0,
+    public reason: string = ""
+  ) {}
 }
 
-export interface DecisionInfo {
-  selected_agent: string;
-  score: number;
-  decision_time_ms: number;
-  candidates?: Candidate[];
+export class DecisionInfo {
+  constructor(
+    public selected_agent: string = "",
+    public score: number = 0,
+    public decision_time_ms: number = 0,
+    public candidates: Candidate[] = []
+  ) {}
 }
 
-export interface SubmitResponse {
-  task_id: string;
-  agent_id?: string;
-  agent_url?: string;
-  score?: number;
-  dimensions?: Record<string, number>;
-  decision: DecisionInfo;
-  status: string;
-  selected_agent?: string;
-  a2a_call_ms?: number;
-  response?: unknown;
-  error?: string;
-  source_peer?: string;
-  source_agent_id?: string;
+export class SubmitResponse {
+  constructor(
+    public task_id: string = "",
+    public agent_id: string = "",
+    public selected_agent: string = "",
+    public score: number = 0,
+    public decision: DecisionInfo = new DecisionInfo(),
+    public status: string = "",
+    public a2a_call_ms: number = 0,
+    public response: unknown = null,
+    public error: string = "",
+    public source_peer: string = "",
+    public source_agent_id: string = ""
+  ) {}
 }
