@@ -9,9 +9,9 @@
 
 export { Client } from "./client";
 
-// Options (interfaces — 需要 export type 在 isolatedModules 模式下)
-export type { AuthConfig, CircuitConfig, ClientOptions, RetryConfig, Role } from "./options";
-export { DEFAULT_CIRCUIT_CONFIG, DEFAULT_RETRY_CONFIG } from "./options";
+// Options (interfaces — 需要 export type 在 isolatedModules 模式下; Role 是 enum 值,值 export)
+export type { AuthConfig, CircuitConfig, ClientOptions, RetryConfig } from "./options";
+export { DEFAULT_CIRCUIT_CONFIG, DEFAULT_RETRY_CONFIG, Role } from "./options";
 
 // Errors (classes)
 export {

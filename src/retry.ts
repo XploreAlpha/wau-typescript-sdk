@@ -23,8 +23,9 @@ export function isRetryable(err: unknown): boolean {
     err instanceof Error &&
     (err.name === "AbortError" ||
       err.message.includes("timeout") ||
-      err.message.includes("ECONNREFUSED") ||
-      err.message.includes("ECONNRESET"))
+      err.message.includes("connection") ||
+      err.message.includes("ECONN") ||
+      err.message.includes("fetch failed"))
   ) {
     return true;
   }
