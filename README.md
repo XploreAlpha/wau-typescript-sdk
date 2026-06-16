@@ -1,32 +1,35 @@
 # wau-typescript-sdk
 
-> **WAU TypeScript SDK v0.6.0-preview.1** — 官方 TypeScript / JavaScript 客户端,WAU-core-kernel 智能调度内核接入入口
+> **WAU TypeScript SDK v1.0.0 GA** — 官方 TypeScript / JavaScript 客户端,WAU-core-kernel 智能调度内核接入入口
+> v0.7.0 "Amber" 🔷 — **v1.0.0 = 2026-06-25 GA**(M3 W6 完成,2026-07-25 W7.7 文档校准)
 
 [![npm](https://badge.fury.io/js/wau-sdk.svg)](https://www.npmjs.com/package/wau-sdk)
+[![Version](https://img.shields.io/badge/version-v1.0.0-blue?style=flat-square)](https://www.npmjs.com/package/wau-sdk)
 [![TypeScript](https://img.shields.io/badge/typescript-5.4%2B-blue)](https://www.typescriptlang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ## 状态
 
-✅ **v0.6.0-preview.1** (W6.5-7 实施完成,2026-06-13 启动,06-14 完)
+✅ **v1.0.0 GA** (2026-06-25 → 2026-07-25 W7.7 文档校准) — **Public API stable**
 
 | 阶段 | 估时(plan §5.5) | 实际 | 状态 |
 |---|---|---|---|
 | W6.5-6 脚手架 (package.json + tsconfig + vitest) | 0.5 d | ~0.2 d | ✅ |
 | W6.5-6 翻译 wau-circuit (154 行 Go → ~150 行 TS) | 0.5 d | ~0.2 d | ✅ |
 | W6.5-7 Client + 4 服务 + 装饰器链 | 2 d | ~0.3 d | ✅ |
-| W6.5-7 测试 (5 场景契约 + 8 服务单测) | 1 d | ~0.2 d | ✅ |
+| W6.5-7 测试 (5 场景契约 + 8 服务单测 + 94.98% 覆盖率) | 1 d | ~0.2 d | ✅ |
 | W6.5-7 docs + 4 examples | 0.5 d | ~0.1 d | ✅ |
-| W6.5-7 tag + 发 npm | 0.5 d | 待你手动 | ⏳ |
+| W7.7 Public API stable + deprecation policy 文档校准 | 0.05 d | ~0.05 d | ✅ |
+| tag v1.0.0 + 发 npm | 0.5 d | ⏳ 用户手动(已 tag,发包待你) |
 
 **实际完成 ~1d**(估时 5d,提前 4d)
 
 ## 安装
 
 ```bash
-npm install wau-sdk@0.6.0-preview.1
+npm install wau-sdk@1.0.0
 # 或
-pnpm add wau-sdk@0.6.0-preview.1
+pnpm add wau-sdk@1.0.0
 ```
 
 ## 5 分钟快速开始
