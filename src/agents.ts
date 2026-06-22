@@ -57,6 +57,9 @@ export class AgentsService {
             a.description,
             a.skills,
             a.universes,
+            // v0.8.0 M3-2C: server JSON 返 snake_case universe_labels
+            // 旧 server 不会返此字段 → undefined,Agent 构造函数 universeLabels?: Record<string, string> 兼容
+            (a as { universe_labels?: Record<string, string> }).universe_labels,
             a.trust,
             a.status,
             a.lastSeen

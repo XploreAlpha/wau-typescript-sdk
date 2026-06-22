@@ -31,6 +31,12 @@ export class Agent {
     public description: string = "",
     public skills: string[] = [],
     public universes: string[] = [],
+    // universeLabels K8s-style labels(per universe,v0.8.0 M3-2C 新增)
+    //   - 业务分组用 universes(原字段,保持向后兼容)
+    //   - 资源 / 调度特征用 universeLabels(新字段)
+    //   - 老 client 不传 → undefined(server 视为空 map)
+    //   - 字段名跟 afp-protocol + WAU-core-kernel proto + wau-go-sdk + wau-python-sdk 1:1 对齐
+    public universeLabels?: Record<string, string>,
     public trust: number = 0,
     public status: string = "",
     public lastSeen: string = ""
@@ -63,7 +69,9 @@ export class AgentRegisterRequest {
     public url: string = "",
     public description: string = "",
     public skills: string[] = [],
-    public universes: string[] = []
+    public universes: string[] = [],
+    // universeLabels 跟 Agent.universeLabels 字段语义一致(v0.8.0 M3-2C 新增)
+    public universeLabels?: Record<string, string>
   ) {}
 }
 
