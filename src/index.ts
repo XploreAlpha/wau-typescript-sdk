@@ -20,6 +20,15 @@ export {
   CircuitOpenError,
   ConflictError,
   ForbiddenError,
+  HandshakeAgentNoEndpointError,  // v0.8.0 M5-1 B.1
+  HandshakeAgentNotFoundError,
+  HandshakeInsufficientTrustError,
+  HandshakeInvalidProtocolError,
+  HandshakeInvalidRequestError,
+  HandshakeProtocolNotSupportedError,
+  HandshakeRateLimitedError,
+  HandshakeSessionNotFoundError,
+  HandshakeTenantMismatchError,
   MaxRetriesError,
   NotFoundError,
   NotImplementedError,
@@ -37,6 +46,10 @@ export {
   AgentStatus,
   Candidate,
   DecisionInfo,
+  HandshakeRequest,  // v0.8.0 M5-1 B.1
+  HandshakeResponse,
+  HandshakeSessionDetail,
+  HandshakeStats,
   HealthResponse,
   KernelInfo,
   PageOptions,
@@ -47,6 +60,7 @@ export {
 
 // Services
 export { AgentsService } from "./agents";
+export { HandshakeService } from "./handshake";  // v0.8.0 M5-1 B.1
 export { IntentService } from "./intent";
 export { KernelService } from "./kernel";
 export { TasksService } from "./tasks";

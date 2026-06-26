@@ -163,3 +163,52 @@ export class SubmitResponse {
     public source_agent_id: string = ""
   ) {}
 }
+
+// v0.8.0 M5-1 B.1 — Handshake DTO
+
+export class HandshakeRequest {
+  constructor(
+    public tenantId: string,
+    public agentId: string,
+    public protocol: string = "a2a",
+    public universe: string = "",
+    public clientId: string = ""
+  ) {}
+}
+
+export class HandshakeResponse {
+  constructor(
+    public sessionId: string = "",
+    public directEndpoint: string = "",
+    public protocol: string = "",
+    public expiresAt: string = "",
+    public ttlSeconds: number = 0,
+    public reused: boolean = false
+  ) {}
+}
+
+export class HandshakeSessionDetail {
+  constructor(
+    public sessionId: string = "",
+    public tenantId: string = "",
+    public clientId: string = "",
+    public agentId: string = "",
+    public directEndpoint: string = "",
+    public protocol: string = "",
+    public trustScore: number = 0,
+    public createdAt: string = "",
+    public expiresAt: string = "",
+    public ttlSeconds: number = 0,
+    public reuseCount: number = 0
+  ) {}
+}
+
+export class HandshakeStats {
+  constructor(
+    public totalSessions: number = 0,
+    public totalReuses: number = 0,
+    public reuseHitRate: number = 0,
+    public activeSessions: number = 0,
+    public perTenant: Record<string, { sessions: number; reuses: number; hitRate: number }> = {}
+  ) {}
+}

@@ -109,3 +109,59 @@ export class MaxRetriesError extends WauError {
 
 /** P2 stub (gRPC IntentService) */
 export class NotImplementedError extends WauError {}
+
+// v0.8.0 M5-1 B.1 — 9 个 Handshake 错误子类(per plan §A.2)
+
+export class HandshakeInsufficientTrustError extends APIError {
+  constructor(message: string = "client trust score below 0.5 threshold", code: string = "", requestId: string = "", body?: Buffer) {
+    super(403, message, code || "INSUFFICIENT_TRUST", requestId, body);
+  }
+}
+
+export class HandshakeAgentNotFoundError extends APIError {
+  constructor(message: string = "agent not found in registry", code: string = "", requestId: string = "", body?: Buffer) {
+    super(404, message, code || "AGENT_NOT_FOUND", requestId, body);
+  }
+}
+
+export class HandshakeTenantMismatchError extends APIError {
+  constructor(message: string = "tenant does not own this session", code: string = "", requestId: string = "", body?: Buffer) {
+    super(403, message, code || "TENANT_MISMATCH", requestId, body);
+  }
+}
+
+export class HandshakeRateLimitedError extends APIError {
+  constructor(message: string = "rate limit exceeded (100 req/min per client)", code: string = "", requestId: string = "", body?: Buffer) {
+    super(429, message, code || "RATE_LIMITED", requestId, body);
+  }
+}
+
+export class HandshakeProtocolNotSupportedError extends APIError {
+  constructor(message: string = "agent does not support requested protocol", code: string = "", requestId: string = "", body?: Buffer) {
+    super(400, message, code || "PROTOCOL_NOT_SUPPORTED", requestId, body);
+  }
+}
+
+export class HandshakeSessionNotFoundError extends APIError {
+  constructor(message: string = "session not found or expired", code: string = "", requestId: string = "", body?: Buffer) {
+    super(404, message, code || "SESSION_NOT_FOUND", requestId, body);
+  }
+}
+
+export class HandshakeAgentNoEndpointError extends APIError {
+  constructor(message: string = "agent has no endpoint", code: string = "", requestId: string = "", body?: Buffer) {
+    super(404, message, code || "AGENT_NO_ENDPOINT", requestId, body);
+  }
+}
+
+export class HandshakeInvalidProtocolError extends APIError {
+  constructor(message: string = "protocol not in ProtocolRegistry", code: string = "", requestId: string = "", body?: Buffer) {
+    super(400, message, code || "INVALID_PROTOCOL", requestId, body);
+  }
+}
+
+export class HandshakeInvalidRequestError extends APIError {
+  constructor(message: string = "invalid request", code: string = "", requestId: string = "", body?: Buffer) {
+    super(400, message, code || "INVALID_REQUEST", requestId, body);
+  }
+}

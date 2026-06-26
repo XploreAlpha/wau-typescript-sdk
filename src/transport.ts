@@ -13,6 +13,15 @@ import {
   BadRequestError,
   ConflictError,
   ForbiddenError,
+  HandshakeAgentNoEndpointError,
+  HandshakeAgentNotFoundError,
+  HandshakeInsufficientTrustError,
+  HandshakeInvalidProtocolError,
+  HandshakeInvalidRequestError,
+  HandshakeProtocolNotSupportedError,
+  HandshakeRateLimitedError,
+  HandshakeSessionNotFoundError,
+  HandshakeTenantMismatchError,
   NotFoundError,
   UnauthorizedError,
 } from "./errors";
@@ -25,6 +34,20 @@ const STATUS_MAP: Record<number, new (msg?: string, code?: string) => APIError> 
   403: ForbiddenError as new (msg?: string, code?: string) => APIError,
   404: NotFoundError as new (msg?: string, code?: string) => APIError,
   409: ConflictError as new (msg?: string, code?: string) => APIError,
+};
+
+// v0.8.0 M5-1 B.1 — Handshake 错误码 → 错误类
+const HANDSHAKE_CODE_TO_CLS: Record<string, new (msg?: string, code?: string) => APIError> = {
+  "-32001": HandshakeInsufficientTrustError,
+  "-32002": HandshakeAgentNotFoundError,
+  "-32003": HandshakeTenantMismatchError,
+  "-32004": HandshakeRateLimitedError,
+  "-32005": HandshakeProtocolNotSupportedError,
+  "-32600": HandshakeInvalidRequestError,
+  SESSION_NOT_FOUND: HandshakeSessionNotFoundError,
+  AGENT_NO_ENDPOINT: HandshakeAgentNoEndpointError,
+  INVALID_PROTOCOL: HandshakeInvalidProtocolError,
+  INVALID_REQUEST: HandshakeInvalidRequestError,
 };
 
 export class Transport {
@@ -85,11 +108,34 @@ export class Transport {
   }
 
   private static raiseForStatus(resp: AxiosResponse): never {
-    const ErrClass = STATUS_MAP[resp.status] ?? APIError;
-    const body = resp.data as { error?: string; message?: string; code?: string } | undefined;
-    const message = body?.error ?? body?.message ?? "";
-    const code = body?.code ?? "";
+    const body = resp.data as { error?: { code?: number | string; message?: string } | string; message?: string; code?: number | string } | undefined;
+    // code 可能在 error.code(嵌套)或顶层 code 字段
+    let code = "";
+    let message = "";
+    if (body) {
+      const errObj = body.error;
+      if (typeof errObj === "object" && errObj !== null) {
+        code = String(errObj.code ?? "");
+        message = errObj.message ?? "";
+      } else if (typeof errObj === "string") {
+        message = errObj;
+      } else {
+        message = body.message ?? "";
+      }
+      if (!code && body.code !== undefined) {
+        code = String(body.code);
+      }
+    }
     const requestId = (resp.headers as Record<string, string>)["x-request-id"] ?? "";
+
+    // v0.8.0 M5-1 B.1: 握手端点 → 用 Handshake*Error
+    let ErrClass: new (msg?: string, code?: string) => APIError = STATUS_MAP[resp.status] ?? APIError;
+    if (resp.config?.url?.includes("/handshake/")) {
+      const HandshakeClass = HANDSHAKE_CODE_TO_CLS[code];
+      if (HandshakeClass) {
+        ErrClass = HandshakeClass;
+      }
+    }
 
     let bodyBytes: Buffer | undefined;
     if (typeof resp.data === "string") {
