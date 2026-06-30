@@ -45,6 +45,11 @@ export {
   AgentScore,
   AgentStatus,
   Candidate,
+  ChatChoice,  // v0.9.0 M3 §3.7
+  ChatCompletionRequest,
+  ChatCompletionResponse,
+  ChatMessage,
+  ChatUsage,
   DecisionInfo,
   HandshakeRequest,  // v0.8.0 M5-1 B.1
   HandshakeResponse,
@@ -60,6 +65,7 @@ export {
 
 // Services
 export { AgentsService } from "./agents";
+export { ChatService } from "./chat";  // v0.9.0 M3 §3.7
 export { HandshakeService } from "./handshake";  // v0.8.0 M5-1 B.1
 export { IntentService } from "./intent";
 export { KernelService } from "./kernel";

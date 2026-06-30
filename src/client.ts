@@ -17,6 +17,7 @@ import {
 import { Retrier } from "./retry";
 import { Transport } from "./transport";
 import { AgentsService } from "./agents";
+import { ChatService } from "./chat";  // v0.9.0 M3 §3.7
 import { HandshakeService } from "./handshake";  // v0.8.0 M5-1 B.1
 import { IntentService } from "./intent";
 import { KernelService } from "./kernel";
@@ -38,6 +39,7 @@ export class Client {
   public readonly tasks: TasksService;
   public readonly intent: IntentService;
   public readonly handshake: HandshakeService;  // v0.8.0 M5-1 B.1
+  public readonly chat: ChatService;  // v0.9.0 M3 §3.7
 
   constructor(baseURL: string, options: ClientOptions = {}) {
     if (!baseURL) {
@@ -78,6 +80,7 @@ export class Client {
     this.tasks = new TasksService(this.transport);
     this.intent = new IntentService();
     this.handshake = new HandshakeService(this.transport, userAgent);  // v0.8.0 M5-1 B.1
+    this.chat = new ChatService(this.transport);  // v0.9.0 M3 §3.7
   }
 
   /**

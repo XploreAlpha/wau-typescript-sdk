@@ -212,3 +212,55 @@ export class HandshakeStats {
     public perTenant: Record<string, { sessions: number; reuses: number; hitRate: number }> = {}
   ) {}
 }
+
+// ============== Chat / LLM DTO(v0.9.0 M3 §3.7 新增,per D20 architecture-pivot)==============
+// 字段 1:1 对齐 OpenAI Chat Completions API + wau-go-sdk Chat DTO,
+// 4 SDK 通用,test mock 跟真 wau-edge 字节级兼容(per M2 §2.5 端到端 mock 验证)。
+
+export class ChatMessage {
+  constructor(
+    public role: string = "",
+    public content: string = "",
+    public name: string = ""
+  ) {}
+}
+
+export class ChatCompletionRequest {
+  constructor(
+    public model: string = "",
+    public messages: ChatMessage[] = [],
+    public stream: boolean = false,
+    public universe: string = "",
+    public metadata: Record<string, string> = {},
+    public temperature?: number,
+    public maxTokens: number = 0
+  ) {}
+}
+
+export class ChatChoice {
+  constructor(
+    public index: number = 0,
+    public message: ChatMessage = new ChatMessage(),
+    public finishReason: string = ""
+  ) {}
+}
+
+export class ChatUsage {
+  constructor(
+    public promptTokens: number = 0,
+    public completionTokens: number = 0,
+    public totalTokens: number = 0
+  ) {}
+}
+
+export class ChatCompletionResponse {
+  constructor(
+    public id: string = "",
+    public object: string = "chat.completion",
+    public created: number = 0,
+    public model: string = "",
+    public choices: ChatChoice[] = [],
+    public usage: ChatUsage = new ChatUsage(),
+    public reason: string = "" // WAU 扩展,wau-llm-router 决策原因
+  ) {}
+}
