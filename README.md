@@ -87,6 +87,50 @@ npx vitest run tests/circuit.test.ts
 - [M3 计划](/home/inamoto888/.claude/plans/lexical-orbiting-nova.md)
 - [wau-go-sdk ADR-0001~0004](https://github.com/XploreAlpha/wau-go-sdk/tree/main/docs/adr)
 
+## v0.9.0 "Acorn" 收口段(2026-09-15 GA)
+
+上文介绍 v0.7.0 计划 + ADR 链接。本段为 v0.9.0 GA 增量补充。
+
+### 角色
+
+| OS 类比 | Client SDK(TypeScript / Node.js,前端入口)|
+|---|---|
+| 部署 | npm package |
+| 通信 | gRPC-web → wau-edge :18401(浏览器) 或 gRPC → wau-llm-router(Node.js)|
+| 状态 | v1.1.0 同步发版(2026-07-13)|
+
+### v0.9.0 新增
+
+- **直连 + gRPC-web 双栈**(per [[project-v0-9-0-M3-§3.7-chat-sdk-4langs-2026-06-30]])
+- **bot/ 字段 5/5 对齐 4 SDK**(per [[project-v0-9-0-stage0-closure-2026-06-28]])
+- **TypeScript strict 类型**:ResolveInput / LLMDecision 完整
+
+### 5 行 TS bot
+
+```typescript
+import { Bot } from "wau-typescript-sdk/bot/telegram";
+
+const bot = new Bot({
+  token: process.env.TELEGRAM_BOT_TOKEN!,
+  tenantId: "acme",
+});
+bot.start();
+```
+
+### v0.9.0 "Acorn" 5 份核心文档
+
+| # | 文件 | 内容 |
+|---|---|---|
+| 1 | [README.md](README.md)(本文件)| SDK 入口 |
+| 2 | [QUICKSTART.md](QUICKSTART.md) | 15 分钟跑通 |
+| 3 | [DEPLOY.md](DEPLOY.md) | npm 发布 |
+| 4 | [ARCHITECTURE.md](ARCHITECTURE.md) | 模块 + 4 SDK 对齐 |
+| 5 | [CHANGELOG.md](CHANGELOG.md) | v0.7.0 + v1.1.0 倒序(27 行已存在)|
+
+### 历史锚点
+
+- v1.1.0 SDK 同步发版(per [[project-v0.8.0-GA-2026-07-13]])
+
 ## 协议
 
 MIT © 2026 youhaoxi
