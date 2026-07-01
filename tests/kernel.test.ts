@@ -51,13 +51,13 @@ describe("Auth (HS256 + Bearer)", () => {
   });
 
   it("sign returns 3-segment JWT", () => {
-    const s = new Signer({ agentName: "x", sharedSecret: TEST_SECRET, role: Role.EXTERNAL_AGENT });
+    const s = new Signer({ agentName: "x", tenantId: "t1", sharedSecret: TEST_SECRET, role: Role.EXTERNAL_AGENT });
     const tok = s.sign();
     expect(tok.split(".")).toHaveLength(3);
   });
 
   it("JWT 5 min expiry + jti uniqueness", () => {
-    const s = new Signer({ agentName: "x", sharedSecret: TEST_SECRET, role: Role.EXTERNAL_AGENT });
+    const s = new Signer({ agentName: "x", tenantId: "t1", sharedSecret: TEST_SECRET, role: Role.EXTERNAL_AGENT });
     const tok = s.sign();
     const decoded = jwt.verify(tok, TEST_SECRET, { algorithms: ["HS256"] }) as jwt.JwtPayload;
     expect((decoded.exp ?? 0) - (decoded.iat ?? 0)).toBe(300);
@@ -82,7 +82,12 @@ describe("Auth (HS256 + Bearer)", () => {
       });
 
     const c = new Client("http://mock:18400", {
-      auth: { agentName: "test", sharedSecret: TEST_SECRET, role: Role.TRUSTED_AGENT },
+      auth: {
+        agentName: "test",
+        tenantId: "test-tenant", // Stage 3.1 #1:必填
+        sharedSecret: TEST_SECRET,
+        role: Role.TRUSTED_AGENT,
+      },
     });
     await c.kernel.health();
 

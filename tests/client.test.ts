@@ -29,7 +29,12 @@ describe("Client 主类", () => {
 
   it("WithAuth 创建 client", () => {
     const c = new Client("http://mock", {
-      auth: { agentName: "test", sharedSecret: "secret", role: Role.TRUSTED_AGENT },
+      auth: {
+        agentName: "test",
+        tenantId: "test-tenant", // Stage 3.1 #1:必填
+        sharedSecret: "secret",
+        role: Role.TRUSTED_AGENT,
+      },
     });
     expect(c.baseURL).toBe("http://mock");
   });
