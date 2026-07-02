@@ -264,3 +264,39 @@ export class ChatCompletionResponse {
     public reason: string = "" // WAU 扩展,wau-llm-router 决策原因
   ) {}
 }
+
+// ============== Streaming SSE DTO(per Stage 3.1 #10, 2026-07-02)==============
+//
+// OpenAI ChatCompletionChunk 协议 1:1 对齐(per https://platform.openai.com/docs/api-reference/chat-streaming)。
+// 4 SDK 通用字段(per Stage 0 4 SDK 5/5 字段对齐)。
+//
+// 完整链路(per Stage 3.1 #10):
+//   SDK → wau-edge :18402 /v1/chat/completions?stream=true
+//       → wau-llm-router :18404 Resolve(unary, 拿 userToken + model)
+//       → new-api sidecar :3000 /v1/chat/completions?stream=true
+//       → DeepSeek v4-flash reasoning model → SSE chunks → 响应回 SDK
+
+export class ChunkDelta {
+  constructor(
+    public role: string = "",
+    public content: string = ""
+  ) {}
+}
+
+export class ChunkChoice {
+  constructor(
+    public index: number = 0,
+    public delta: ChunkDelta = new ChunkDelta(),
+    public finishReason: string | null = null
+  ) {}
+}
+
+export class ChatCompletionChunk {
+  constructor(
+    public id: string = "",
+    public object: string = "chat.completion.chunk",
+    public created: number = 0,
+    public model: string = "",
+    public choices: ChunkChoice[] = []
+  ) {}
+}

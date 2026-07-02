@@ -27,6 +27,7 @@ import {
 } from "./errors";
 import { ClientOptions } from "./options";
 import { Signer } from "./auth";
+import { ChatCompletionChunk, ChunkChoice, ChunkDelta } from "./types";
 
 const STATUS_MAP: Record<number, new (msg?: string, code?: string) => APIError> = {
   400: BadRequestError as new (msg?: string, code?: string) => APIError,
@@ -151,5 +152,133 @@ export class Transport {
       body: bodyBytes,
     });
     throw err;
+  }
+
+  /**
+   * SSE 流式请求 — Stage 3.1 #10 (2026-07-02) 实装
+   *
+   * 用 fetch 直读 ReadableStream(axios 不支持原生 SSE 流式解析)。
+   * 协议: data: {json}\n\n + data: [DONE]\n\n 终止
+   *
+   * @param path 请求路径(以 / 开头)
+   * @param body JSON body
+   * @returns AsyncIterable<ChatCompletionChunk>
+   * @throws APIError 当 4xx/5xx 时
+   */
+  async *streamChat(
+    path: string,
+    body: unknown
+  ): AsyncIterable<ChatCompletionChunk> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      "User-Agent":
+        (this.http.defaults.headers.common["User-Agent"] as string) ??
+        "wau-typescript-sdk/0.6.0-preview.1",
+    };
+    if (this.signer) {
+      headers["Authorization"] = `Bearer ${this.signer.sign()}`;
+    }
+    const url = path.startsWith("/") ? path : `/${path}`;
+    const fullUrl = `${this.baseURL}${url}`;
+
+    const resp = await fetch(fullUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (resp.status >= 400) {
+      const text = await resp.text();
+      let parsed: {
+        error?: { code?: number | string; message?: string };
+        message?: string;
+        code?: number | string;
+      } = {};
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        /* ignore */
+      }
+      let code = "";
+      let message = "";
+      if (parsed.error && typeof parsed.error === "object") {
+        code = String(parsed.error.code ?? "");
+        message = parsed.error.message ?? "";
+      } else {
+        message = parsed.message ?? text;
+      }
+      if (!code && parsed.code !== undefined) {
+        code = String(parsed.code);
+      }
+      const requestId = resp.headers.get("x-request-id") ?? "";
+      const ErrClass = STATUS_MAP[resp.status] ?? APIError;
+      const err = new ErrClass(message, code);
+      Object.assign(err, {
+        statusCode: resp.status,
+        requestId,
+        body: Buffer.from(text, "utf-8"),
+      });
+      throw err;
+    }
+
+    if (!resp.body) {
+      return;
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6);
+          if (payload === "[DONE]") {
+            return;
+          }
+          let data: {
+            id: string;
+            object: string;
+            created: number;
+            model: string;
+            choices: Array<{
+              index: number;
+              delta: { role?: string; content?: string };
+              finish_reason?: string | null;
+            }>;
+          };
+          try {
+            data = JSON.parse(payload);
+          } catch (e) {
+            throw new Error(
+              `wau: parse SSE chunk failed: ${(e as Error).message} (payload=${payload})`
+            );
+          }
+          const { ChunkChoice: CC, ChunkDelta: CD } = { ChunkChoice, ChunkDelta };
+          yield new ChatCompletionChunk(
+            data.id ?? "",
+            data.object ?? "chat.completion.chunk",
+            data.created ?? 0,
+            data.model ?? "",
+            (data.choices ?? []).map(
+              (c) =>
+                new CC(
+                  c.index,
+                  new CD(c.delta?.role ?? "", c.delta?.content ?? ""),
+                  c.finish_reason ?? null
+                )
+            )
+          );
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
   }
 }

@@ -23,6 +23,7 @@ import {
   ChatCompletionResponse,
   ChatMessage,
   ChatUsage,
+  ChatCompletionChunk,
 } from "./types";
 
 export class ChatService {
@@ -97,5 +98,61 @@ export class ChatService {
       ),
       data.reason ?? ""
     );
+  }
+
+  /**
+   * POST /v1/chat/completions 以 SSE 流式返回 ChatCompletionChunk(per Stage 3.1 #10, 2026-07-02)。
+   *
+   * @param req ChatCompletionRequest,stream 字段强制覆盖为 true
+   * @returns AsyncIterable<ChatCompletionChunk>
+   * @throws Error 客户端校验失败(model / messages 空)
+   * @throws APIError HTTP 4xx/5xx
+   * @throws Error SSE chunk JSON 解析失败
+   *
+   * 用法::
+   *
+   *   for await (const chunk of c.chat.stream(req)) {
+   *     process.stdout.write(chunk.choices[0].delta.content);
+   *     if (chunk.choices[0].finishReason === "stop") break;
+   *   }
+   *
+   * SSE 协议(per wau-edge stream.go):
+   *   - 头:Content-Type: text/event-stream
+   *   - 每个 chunk:data: {JSON}\n\n
+   *   - 终止:data: [DONE]\n\n
+   */
+  async *stream(
+    req: ChatCompletionRequest
+  ): AsyncIterable<ChatCompletionChunk> {
+    if (!req.model) {
+      throw new Error("ChatCompletionRequest.model is required");
+    }
+    if (!req.messages || req.messages.length === 0) {
+      throw new Error("ChatCompletionRequest.messages must not be empty");
+    }
+    req.stream = true;
+
+    const body: Record<string, unknown> = {
+      model: req.model,
+      stream: true,
+      messages: req.messages.map((m) => {
+        const out: Record<string, string> = { role: m.role, content: m.content };
+        if (m.name) out.name = m.name;
+        return out;
+      }),
+    };
+    if (req.universe) body.universe = req.universe;
+    if (req.metadata && Object.keys(req.metadata).length > 0) {
+      body.metadata = req.metadata;
+    }
+    if (req.temperature !== undefined) body.temperature = req.temperature;
+    if (req.maxTokens > 0) body.max_tokens = req.maxTokens;
+
+    for await (const chunk of this.transport.streamChat(
+      "/v1/chat/completions",
+      body
+    )) {
+      yield chunk;
+    }
   }
 }

@@ -50,6 +50,9 @@ export {
   ChatCompletionResponse,
   ChatMessage,
   ChatUsage,
+  ChunkDelta,    // Stage 3.1 #10 SSE
+  ChunkChoice,   // Stage 3.1 #10 SSE
+  ChatCompletionChunk, // Stage 3.1 #10 SSE
   DecisionInfo,
   HandshakeRequest,  // v0.8.0 M5-1 B.1
   HandshakeResponse,
