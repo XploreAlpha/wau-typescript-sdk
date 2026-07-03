@@ -261,7 +261,12 @@ export class ChatCompletionResponse {
     public model: string = "",
     public choices: ChatChoice[] = [],
     public usage: ChatUsage = new ChatUsage(),
-    public reason: string = "" // WAU 扩展,wau-llm-router 决策原因
+    public reason: string = "", // WAU 扩展,wau-llm-router 决策原因
+    // WAU 扩展 (Stage 3.1 #11, 2026-07-03) — provider 是 wau-llm-router Resolve 选中的
+    // LLM provider 名称(如 "deepseek-v4-flash" / "gpt-4o-mini" / "claude-haiku-4-5"),
+    // 透传自 wau-store 真相源,debug / audit / 成本归因用。
+    // 老调用方不读 → 无影响(空串兜底,TypeScript 类构造默认参数)。
+    public provider: string = ""
   ) {}
 }
 

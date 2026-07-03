@@ -76,6 +76,8 @@ export class ChatService {
       }>;
       usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
       reason?: string;
+      // Stage 3.1 #11 (2026-07-03):Provider 透传
+      provider?: string;
     };
 
     return new ChatCompletionResponse(
@@ -96,7 +98,9 @@ export class ChatService {
         data.usage.completion_tokens,
         data.usage.total_tokens
       ),
-      data.reason ?? ""
+      data.reason ?? "",
+      // Stage 3.1 #11 (2026-07-03):Provider 透传
+      data.provider ?? ""
     );
   }
 

@@ -52,6 +52,8 @@ describe("ChatService.completions", () => {
         ],
         usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
         reason: "static:tenant=acme model=gpt-4o-mini",
+        // Stage 3.1 #11 (2026-07-03):Provider 透传 mock
+        provider: "deepseek-v4-flash",
       });
 
     const c = new Client("http://mock:18402");
@@ -67,6 +69,8 @@ describe("ChatService.completions", () => {
     expect(resp.choices.length).toBe(1);
     expect(resp.choices[0].message.content).toBe("echo: hello");
     expect(resp.reason).toContain("static:tenant=acme");
+    // Stage 3.1 #11:Provider 透传验证
+    expect(resp.provider).toBe("deepseek-v4-flash");
   });
 
   // ============== Case 2:empty model ==============
@@ -106,7 +110,39 @@ describe("ChatService.completions", () => {
     ).rejects.toBeInstanceOf(APIError);
   });
 
-  // ============== Case 5:universe 透传 ==============
+  // ============== Case 5:Provider 透传 (Stage 3.1 #11, 2026-07-03) ==============
+  //
+  // 验证:wau-edge /v1/chat/completions 响应里带 provider 字段(per LLMDecision.Provider 透传),
+  //      wau-typescript-sdk ChatCompletionResponse.provider 字段能正确解析并暴露。
+  // 兼容:老 server 不带 provider 字段 → SDK 解析为 ""(空串兜底,TypeScript 类构造默认参数)。
+
+  it("provider 字段透传 (Stage 3.1 #11)", async () => {
+    nock("http://mock:18402")
+      .post("/v1/chat/completions")
+      .reply(200, {
+        id: "chatcmpl-provider-001",
+        object: "chat.completion",
+        created: 1700000002,
+        model: "claude-haiku-4-5",
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "hi" },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        provider: "claude-haiku-4-5",
+      });
+
+    const c = new Client("http://mock:18402");
+    const resp = await c.chat.completions(
+      new ChatCompletionRequest("claude-haiku-4-5", [new ChatMessage("user", "hi")])
+    );
+    expect(resp.provider).toBe("claude-haiku-4-5");
+  });
+
+  // ============== Case 6:universe 透传 ==============
 
   it("universe 字段透传到 server", async () => {
     let capturedBody: unknown = null;
