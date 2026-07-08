@@ -37,3 +37,23 @@
 
 > 🔶 Carnelian M3 W6 — 完整 TypeScript SDK
 > 翻译 wau-python-sdk 0.6.0-preview.1 → TypeScript / JavaScript 双生态
+
+## [Unreleased] — v1.0.0 "Phoenix" M10 W8 (2026-07-08)
+
+### Added
+
+#### M10 N1 — Bot 注册 DTO + BotsService 公共 interface
+
+- `src/bot/common/account.ts`(NEW,~84 行):
+  - `Account` interface 字段与 wau-go-sdk / wau-python-sdk 100% 一致
+  - `newAccount(...)` factory + `publicBotIdOf(...)` helper
+  - `RegisterBotRequest` / `UpdateBotRequest` / `ListBotsFilter` interfaces
+- `src/bot/common/bots_service.ts`(NEW,~47 行):
+  - `BotsService` interface:register / get / update / list / delete
+  - 2 sentinel errors:`BotNotFoundError` / `BotAlreadyExistsError`
+- `src/bot/common/index.ts` 加 8 export
+
+#### Compatibility (D60)
+
+- `Bot` interface / `IncomingMessage` / `OutgoingMessage` / `BotBuilder` 0 改
+- 字段 camelCase,D13 跨 SDK 一致
