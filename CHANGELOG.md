@@ -57,3 +57,9 @@
 
 - `Bot` interface / `IncomingMessage` / `OutgoingMessage` / `BotBuilder` 0 改
 - 字段 camelCase,D13 跨 SDK 一致
+
+#### M4 OAuth 增强 (2026-07-08)
+- `RefreshableTokenStore.refreshToken()` 公开方法(declare merging + prototype 注入)
+- `RefreshableTokenStore.currentPair()` 返当前 token pair
+- `PKCEClient` + `PKCEConfig` + `generatePKCEChallenge()` 公共 client 走 Auth Code + PKCE
+- 0 改老 OAuthClient + 老 RefreshableTokenStore(D60 additive,prototype injection 不影响类型)
