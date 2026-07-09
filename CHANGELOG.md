@@ -1,3 +1,22 @@
+## [Unreleased] — v1.3.0 "botUuid field add (W7.1, 2026-07-09)"
+
+### Added
+
+- `botUuid` (UUID v4, server-assigned) field added to `Account` + `RegisterBotRequest` interfaces in `src/bot/common/account.ts`
+- Per D78/D79/D80 decisions; D60 additive, 0 breaking change
+- Cross-SDK JSON byte-equal alignment per D13
+- 老 SDK v1.2.0 向后兼容(server 自动从 botId slug 寻址并生成 botUuid)
+- 0 unit tests added (W7.2 will add 15 mock e2e tests for 5 platforms × 3 cases)
+
+### Compatibility
+
+- 100% 保持向后兼容 — `botUuid` 字段 optional(`botUuid?: string`),老 client 不传 = server 自动生成
+- 老 9 字段(`accountId, tenantId, botId, publicBotId, ownerUserId, channelType, channelConfigId, createdAt, updatedAt`) 0 改
+- 老 `botId` slug 语义不变(tenant-local, client-supplied)
+- 跟 D66=B RBAC 兼容(`ownerUserId` 维持 string)
+
+---
+
 ## [v1.2.0] - 2026-07-02 (v0.9.0 GA)
 
 ### Highlights

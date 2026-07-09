@@ -9,6 +9,9 @@
  * wau-python-sdk/src/wau_sdk/bot/common/account.py
  * wau-rust-sdk/src/bot/common/account.rs
  * 必须随时保持同步,字段一字不差。
+ *
+ * v1.3.0 (W7.1, 2026-07-09) — 新加 botUuid (UUID v4, server-assigned)
+ * per D78/D79/D80 拍板;D60 additive,0 改老字段。老 botId slug 语义不变。
  */
 
 export interface Account {
@@ -20,6 +23,12 @@ export interface Account {
 
   /** 本地名 / slug(必填,例 "weather-cn"),tenant 内唯一 */
   botId: string;
+
+  /** 服务端分配的 UUID v4(per D78,per tenant 全局唯一)。
+   *  与 botId slug 不同:botId = human-readable client-supplied,botUuid = machine-friendly server-assigned。
+   *  用途:wau-edge route 寻址 / wau-channel 8 平台 adapter 寻址 / D79 JWT 4 claims 之一。
+   *  Register 响应返回(服务端决定,不接受 client 上传)。undefined = 老 SDK v1.2.0 兼容降级路径。*/
+  botUuid?: string;
 
   /** 全局公开 ID = "bot:<tenant>:<botid>" (D82=A 服务端回填校验) */
   publicBotId: string;
@@ -68,6 +77,8 @@ export function newAccount(
 export interface RegisterBotRequest {
   tenantId: string;
   botId: string;
+  /** v1.3.0 (W7.1, D78) — 可选,server-assigned。不传 = 老 SDK v1.2.0 兼容路径,server 自动从 botId slug 寻址并生成。*/
+  botUuid?: string;
   ownerUserId: string;
   channelType: string;
   channelConfigId: string;
