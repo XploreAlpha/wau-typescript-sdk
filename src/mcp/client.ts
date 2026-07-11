@@ -52,8 +52,17 @@ import {
   ToolListTasks,
   ToolParseAgentCard,
   ToolSendMessage,
+  ToolStreamMessage,
+  ToolSubscribeToTask,
   isStreamingTool,
 } from "./tools";
+import {
+  openStream,
+  startSSE,
+  StreamFetchImpl,
+  StreamHandle,
+  StreamOptions,
+} from "./streaming";
 
 /**
  * fetch 的最小子集(便于注入 — 测试用 mock fetch, 生产用全局 fetch)。
@@ -223,6 +232,98 @@ export class MCPClient {
       target: normalizeTarget(target),
     });
     return this.callTool<ExtendedAgentCard>(params);
+  }
+
+  // ── 2 SSE streaming wrappers (W5 D89.A.7) ────────────
+  /**
+   * Stream a message to the target agent via SSE.
+   *
+   * 流程(per D87.3 + kernel server.go handleStreamMessage):
+   *   1. POST /mcp {tools/call: stream_message, target, message, stream_options}
+   *   2. kernel 返 {stream_id, endpoint}
+   *   3. GET endpoint SSE → StreamHandle.events() 异步消费
+   */
+  async streamMessage(
+    target: string | Record<string, unknown>,
+    message: Message,
+    opts?: StreamOptions,
+  ): Promise<StreamHandle> {
+    if (!message) {
+      throw new Error("mcpclient: message is required");
+    }
+    if (!message.parts || message.parts.length === 0) {
+      throw new Error("mcpclient: message.parts must have at least 1 item");
+    }
+    const streamOpts: Record<string, unknown> = {};
+    if (opts) {
+      if (opts.includeHistory !== undefined) streamOpts.include_history = opts.includeHistory;
+      if (opts.includeArtifacts !== undefined) streamOpts.include_artifacts = opts.includeArtifacts;
+    }
+    return this.openStreamHandle(ToolStreamMessage, normalizeTarget(target), {
+      message,
+      ...(Object.keys(streamOpts).length > 0 ? { stream_options: streamOpts } : {}),
+    });
+  }
+
+  /**
+   * Subscribe to a task's progress via SSE.
+   *
+   * 流程(per D87.3 + kernel server.go handleSubscribeToTask):
+   *   1. POST /mcp {tools/call: subscribe_to_task, target, task_id, stream_options}
+   *   2. kernel 返 {stream_id, endpoint}
+   *   3. GET endpoint SSE → StreamHandle.events() 异步消费
+   */
+  async subscribeToTask(
+    target: string | Record<string, unknown>,
+    taskID: string,
+    opts?: StreamOptions,
+  ): Promise<StreamHandle> {
+    if (!taskID) {
+      throw new Error("mcpclient: task_id is required");
+    }
+    const streamOpts: Record<string, unknown> = {};
+    if (opts) {
+      if (opts.includeHistory !== undefined) streamOpts.include_history = opts.includeHistory;
+      if (opts.includeArtifacts !== undefined) streamOpts.include_artifacts = opts.includeArtifacts;
+    }
+    return this.openStreamHandle(ToolSubscribeToTask, normalizeTarget(target), {
+      task_id: taskID,
+      ...(Object.keys(streamOpts).length > 0 ? { stream_options: streamOpts } : {}),
+    });
+  }
+
+  /**
+   * Shared internal helper: open a stream (POST /mcp → SSE GET) and wrap into StreamHandle.
+   */
+  private async openStreamHandle(
+    toolName: string,
+    target: Record<string, unknown>,
+    extra: Record<string, unknown>,
+  ): Promise<StreamHandle> {
+    const abortController = new AbortController();
+    const streamFetch = (this._fetch as unknown as StreamFetchImpl);
+    const streamStart = await openStream(
+      this._baseURL,
+      this._endpoint,
+      this._auth.token,
+      this._userAgent,
+      toolName,
+      target,
+      streamFetch,
+      extra,
+      abortController.signal,
+    );
+    const sseURL = streamStart.endpoint.startsWith("http")
+      ? streamStart.endpoint
+      : this._baseURL + streamStart.endpoint;
+    return startSSE(
+      streamStart.streamId,
+      sseURL,
+      this._auth.token,
+      this._userAgent,
+      streamFetch,
+      abortController,
+    );
   }
 
   // ── JSON-RPC 2.0 dispatcher ──────────────────────────
