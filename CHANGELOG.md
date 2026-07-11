@@ -17,6 +17,32 @@
 
 ---
 
+## [Unreleased] — v1.3.2 "MCP client add (D87.7, 2026-07-11)"
+
+### Added
+
+- ⭐ New `src/mcp/` submodule: 6 files + tests, ~1500 LoC
+  - `src/mcp/client.ts` — `MCPClient` class + 8 sync tool wrapper methods
+  - `src/mcp/types.ts` — 8 DTOs (Message / Part / Task / Artifact / AgentCard / ExtendedAgentCard / HealthCheckResult / ListTasksFilter+ListTasksResult / PushConfig+PushConfigResult)
+  - `src/mcp/errors.ts` — `RPCError` class + 5 spec code + 3 MCP-specific code (-32001 ~ -32003)
+  - `src/mcp/tools.ts` — 10 tool name constants + `ALL_TOOL_NAMES` + `isStreamingTool` helper
+  - `src/mcp/auth.ts` — `setBearerToken` / `buildHeaders` / `McpAuth` class
+  - `src/mcp/index.ts` — sub-package统一导出
+  - `tests/mcp_client.test.ts` — 35 vitest tests covering 8 sync tool + W5 stub + error path + auth + helpers + concurrent
+- 8 sync MCP tool wrappers:healthCheck / parseAgentCard / sendMessage / getTask / listTasks / cancelTask / createTaskPushNotificationConfig / getExtendedAgentCard
+- 2 SSE streaming tool (streamMessage / subscribeToTask) deferred to W5+
+- Per D87 ⭐⭐ decision; D60 additive (0 改老 chat.ts / bot/ / ucp/ / client.ts etc)
+- Cross-SDK JSON byte-equal alignment per D13
+- Bearer token 注入 OAuth 2.0 identity_linking (per D78/D79/D80)
+
+### Compatibility
+
+- 100% 向后兼容 — 老 SDK v1.3.0 / v1.3.1 client 不感知 mcp/ 新增
+- 0 breaking change to existing APIs
+- JSON-RPC 2.0 envelope 跟 wau-go-sdk `mcpclient/` 字段 1:1 对齐
+
+---
+
 ## [Unreleased] — v1.3.3 "UCP client (W3, 2026-07-11, per D88.7)"
 
 ### Added

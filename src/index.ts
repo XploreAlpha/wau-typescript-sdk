@@ -115,3 +115,58 @@ export {
   setTenantID as UCPSetTenantID,
   UcpAuth,
 } from "./ucp";
+
+// MCP client (v1.3.2, per D87.7) — 8 sync tool wrapper (JSON-RPC 2.0 over HTTP)
+// 独立子包, D60 additive (0 改老 modules),2 SSE streaming tool (streamMessage + subscribeToTask) deferred to W5+
+export {
+  ALL_TOOL_NAMES as MCP_ALL_TOOL_NAMES,
+  AuthHeaderName as MCPAuthHeaderName,
+  AuthSchemePrefix as MCPAuthSchemePrefix,
+  DefaultUserAgent as MCPAuthDefaultUserAgent,
+  MCPClient,
+  isStreamingTool as MCPIsStreamingTool,
+} from "./mcp";
+export type {
+  AgentCard,
+  Artifact,
+  ExtendedAgentCard,
+  FetchImpl as MCPFetchImpl,
+  HealthCheckResult,
+  ListTasksFilter,
+  ListTasksResult,
+  MCPClientOptions,
+  Message,
+  Part,
+  PushConfig,
+  PushConfigResult,
+  RPCErrorPayload as MCPRPCErrorPayload,
+  Task,
+} from "./mcp";
+export {
+  ErrCodeInternal as MCPErrCodeInternal,
+  ErrCodeMCPInvalidAgentCard as MCPErrCodeMCPInvalidAgentCard,
+  ErrCodeMCPAgentUnreachable as MCPErrCodeMCPAgentUnreachable,
+  ErrCodeMCPTaskNotFound as MCPErrCodeMCPTaskNotFound,
+  ErrCodeMethodNotFound as MCPErrCodeMethodNotFound,
+  ErrCodeParse as MCPErrCodeParse,
+  ErrCodeInvalidParams as MCPErrCodeInvalidParams,
+  ErrCodeInvalidRequest as MCPErrCodeInvalidRequest,
+  RPCError as MCPRPCError,
+  McpAuth,
+  buildHeaders as buildMCPHeaders,
+  isAgentUnreachable as isMCPAgentUnreachable,
+  isTaskNotFound as isMCPTaskNotFound,
+  setBearerToken as MCPSetBearerToken,
+} from "./mcp";
+export {
+  ToolCancelTask,
+  ToolCreateTaskPushNotificationConfig,
+  ToolGetExtendedAgentCard,
+  ToolGetTask,
+  ToolHealthCheck,
+  ToolListTasks,
+  ToolParseAgentCard,
+  ToolSendMessage,
+  ToolStreamMessage,
+  ToolSubscribeToTask,
+} from "./mcp";
