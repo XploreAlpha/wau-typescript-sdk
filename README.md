@@ -134,6 +134,30 @@ bot.start();
 ## 协议
 
 MIT © 2026 youhaoxi
+## v1.3.3 新增:UCP 客户端(per D88.7)
+
+11 commerce tool(`listProducts` / `addToCart` / `createCheckoutSession` ... )走 JSON-RPC 2.0 over HTTP(POST `{baseURL}/ucp`),8 commerce DTO 跨 5 SDK byte-equal(per D13)。
+
+```typescript
+import { UCPClient } from "wau-sdk";
+
+// 基础 — bearer token 可选(per D78/D79/D80 OAuth 2.0 identity_linking)
+const ucp = new UCPClient("https://kernel.example.com", {
+  bearerToken: "oauth-jwt",
+});
+const products = await ucp.listProducts();
+const cart = await ucp.addToCart("prod-123", 2);
+
+// W3 stub — kernel ErrNotImplemented → SDK 抛 W5 友好提示
+try {
+  const session = await ucp.createCheckoutSession(cart.cart_id!);
+} catch (e) {
+  console.warn("Stripe W5+ 集成中,当前 stub:", (e as Error).message);
+}
+```
+
+11 commerce tool + 8 commerce DTO + 5 spec code + 5 UCP error code(`-32101 ~ -32105`)+ Stripe 透明集成(SDK 0 Stripe dep,kernel `ucp_stripe.go` 转发)。
+
 ## Bot Platforms
 
 WAU SDK 通过两段责任分工对接 N 个 Bot 平台:

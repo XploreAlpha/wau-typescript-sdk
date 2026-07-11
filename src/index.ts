@@ -79,3 +79,39 @@ export { Breaker, CircuitState, isCircuitFailure } from "./circuit";
 export { Signer } from "./auth";
 export { Retrier, isRetryable } from "./retry";
 export { Transport } from "./transport";
+
+// UCP client (v1.3.3, per D88.7) — 11 commerce tool wrapper (JSON-RPC 2.0 over HTTP)
+// 独立子包,跟 mcpclient 后续也会走同 pattern(D60 additive, 0 改老 modules)
+export {
+  DEFAULT_ENDPOINT as UCP_DEFAULT_ENDPOINT,
+  DEFAULT_USER_AGENT as UCP_DEFAULT_USER_AGENT,
+  UCPClient,
+} from "./ucp";
+export type {
+  CancelOrderResult,
+  Cart,
+  CartLineItem,
+  CheckoutSession,
+  FetchImpl,
+  ListOrdersFilter,
+  ListOrdersResult,
+  ListProductsFilter,
+  ListProductsResult,
+  Order,
+  PaymentConfirmation,
+  Product,
+  SearchProductsResult,
+  UCPClientOptions,
+} from "./ucp";
+export {
+  isNotFound as isUCPNotFound,
+  isStripeError as isUCPStripeError,
+  PaymentStatusFailed as UCPPaymentStatusFailed,
+  PaymentStatusPending as UCPPaymentStatusPending,
+  PaymentStatusProcessing as UCPPaymentStatusProcessing,
+  PaymentStatusSucceeded as UCPPaymentStatusSucceeded,
+  RPCError as UCPRPCError,
+  setBearerToken as UCPSetBearerToken,
+  setTenantID as UCPSetTenantID,
+  UcpAuth,
+} from "./ucp";
