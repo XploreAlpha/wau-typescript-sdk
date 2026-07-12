@@ -170,3 +170,33 @@ export {
   ToolStreamMessage,
   ToolSubscribeToTask,
 } from "./mcp";
+
+// Wau client (v1.3.1, per v1.0.1 Phase 0 拍板 + SDK Consumer Contract §二)
+// 独立子包, D60 additive (0 改老 modules), 4 method skeleton + 19-field WauWorkflow type
+export {
+  asWauWorkflowError,
+  isWauRetryable,
+  WAU_DEFAULT_HEARTBEAT_INTERVAL_MS,
+  WAU_DEFAULT_TIMEOUT_MS,
+  WAU_DEFAULT_USER_AGENT,
+  WauClient,
+  WauErrCodeAuthFailed,
+  WauErrCodeConfidenceTooLow,
+  WauErrCodeInvalidHarness,
+  WauErrCodeInvalidWorkflowType,
+  WauErrCodeNetworkError,
+  WauErrCodeServerError,
+  WauErrCodeTimeout,
+  WauWorkflowError,
+} from "./wau";
+export type {
+  WauClientConfig,
+  WauClientOptions,
+  WauSystemCapability,
+  WauWorkflow,
+  WauWorkflowAgent,
+  WauWorkflowDependency,
+  WauWorkflowErrorCode,
+  WauWorkflowType,
+} from "./wau";
+export type { FetchImpl as WauFetchImpl } from "./wau";

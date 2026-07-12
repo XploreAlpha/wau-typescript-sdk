@@ -1,9 +1,62 @@
 ## Wire Format Reference (added 2026-07-11 per D93 SOP)
 
 This SDK is **canonical-compliant** with [WAU-protocol-spec v1.0.0](https://github.com/youhaoxi/WAU-protocol-spec).
-JSON schemas for `a2a-message` / `afp-send` / `ap2-mandate` / `netbird-config` / `ucp-checkout` are reference;
-TypeScript interface field names (camelCase in JSON+TS) may differ from schema `properties` keys,
-but the **JSON-RPC envelope + wire format MUST match**.
+JSON schemas for `a2a-message` / `afp-send` / `ap2-mandate` / `netbird-config` / `ucp-checkout` / `wau-workflow` are reference;
+TypeScript interface field names (snake_case in JSON+TS, per #14 A 拍板) match schema `properties` keys for `wau-workflow`,
+but the **JSON-RPC envelope + wire format MUST match** for all schemas.
+
+---
+
+## [1.3.1] — v1.3.1 "Wau client add (v1.0.1 Phase 0 拍板, 2026-07-12)"
+
+### Added — wau/ sub-package (per SDK Consumer Contract §二)
+
+- `WauClient` class with 4 method skeleton (per #14 + #15 + #19):
+  1. `registerAgent(config)` — 调 wau-registry 注册 homerail-voice 为 system_ui agent
+  2. `heartbeat()` — 周期心跳发到 wau-registry (走 wau-edge per #15)
+  3. `recommendWorkflow(query)` — 调 wau-intent (经 wau-edge) 推荐 workflow
+  4. `matchWauPattern(query)` — 推 wau-dag-patterns (per #4 抽象 consumer-side)
+- `WauClientConfig` interface (5 URL + systemCapability + timeoutMs + authToken)
+- `WauWorkflow` interface (19 字段: 5 必填 + 14 元数据)
+- `WauWorkflowType` enum (6 值: UNSPECIFIED/SINGLE/CHAIN/PARALLEL/QUORUM/FAN_OUT)
+- `WauWorkflowAgent` + `WauWorkflowDependency` + `WauSystemCapability` 嵌套 type
+- `WauWorkflowError` class + 7 code constants (per #22 retry 2x + 失败回退)
+- `asWauWorkflowError` + `isWauRetryable` helpers (跟 UCP/MCP errors.ts 1:1 pattern)
+
+### Public API Exposed (v1.3.1)
+
+- Main entry: `import { WauClient, WauClientConfig, WauWorkflow, WauWorkflowError } from 'wau-sdk'`
+- Subpath entry: `import { WauClient } from 'wau-sdk/wau'`
+- `./wau` subpath added to `package.json` `exports`
+
+### Stub Stage (v1.3.1, B1 决策)
+
+- 4 methods all throw `WauWorkflowError('SERVER_ERROR', retryable flag)` — 真实 RPC 等 wau-edge / wau-intent / wau-registry endpoint schema 落地后实装 (v1.3.2+)
+- homerail PR-E + PR-B 可以编译 + 跑通 type check + 失败时拿到友好 retryable 信息
+- 0 新 HTTP 调用, 0 依赖新 lib (跟 MCP/UCP 子包 1:1 pattern)
+
+### Compatibility
+
+- D60 additive: 0 改老 SDK modules, 独立子包 (`src/wau/` + `tests/wau/`)
+- D78 byte-equal: 5 SDK 必须 WauClientConfig / WauWorkflow / WauWorkflowError 字段名 + 类型 1:1 (本文件 TS canonical)
+- D66=B RBAC: registerAgent 默认带 owner_user_id (string, 从 systemCapability.user 取)
+- #1c 全局: category: 'USER_ENTRY' + trust_exempt: true
+- #17 voice harness: harness 字段强校验 'codex-appserver' (homerail PR-E handler 实现, SDK 端 throw 友好消息)
+- #22 失败回退: retryable flag 由 caller 决定 (per SDK Consumer Contract §二.4)
+
+### Test
+
+- 18 unit tests in `tests/wau/client.test.ts` (constructor × 3, 4 method skeleton × 4, retryable flag × 5, sample fixture × 3, constants × 3)
+- 老 SDK v1.3.0 → v1.3.3 tests 100% 不破 (D60 additive)
+
+### Reference
+
+- SDK Consumer Contract: `wau-homerail/2026-07-12-wau-sdk-v1.3.1-consumer-contract.md`
+- v1.0.1 SoT doc: `kernel/v1.0.1/2026-07-12-wau-v1.0.1-for-homerail.md`
+- WauWorkflow msg type spec: `kernel/v1.0.1/2026-07-12-wau-workflow-msg-type.md`
+- 24-decisions-closure: `kernel/v1.0.1/2026-07-12-24-decisions-closure.md`
+
+---
 
 ## [Unreleased] — v1.3.0 "botUuid field add (W7.1, 2026-07-09)"
 
