@@ -7,6 +7,35 @@ but the **JSON-RPC envelope + wire format MUST match** for all schemas.
 
 ---
 
+## [1.3.3] — v1.3.3 "Patch: fix `dingtalk-stream` dep typo (2026-07-13, same-day from 1.3.2 publish)"
+
+### Fixed
+
+- **Dependencies**: `dingtalk-stream` `^1.0.0` → `^2.1.0`. npmjs never published any 1.0.x version
+  (latest series = 2.1.0+), so `npm install wau-sdk@1.3.2` immediately fails with
+  `ETARGET: No matching version found for dingtalk-stream@^1.0.0` regardless of caller.
+  Bump dep range to match real published versions.
+
+### Changed
+
+- package.json version: 1.3.2 → 1.3.3 (npm disallows republishing the same version)
+- 1.3.2 stays on npm registry as "latest" until npm index updates within ~30s — 5 min
+  after 1.3.3 publish; users who already pinned `^1.3.2` will auto-upgrade to 1.3.3.
+
+### Why (背景)
+
+- 7-13 user 想发 `wau-sdk@1.3.2` 配合 homerail PR-B-rcp RPC unlock(3 仓 4 commit / wau-team 一键全干拍板)
+- Pre-existing `dingtalk-stream` dep typo in package.json 旧版就存在,未被发现
+- Audit at 7-13 13:34 通过 `/tmp` 真实 install test 立即抓到 bug
+
+### Test
+
+- tsc: 0 error
+- npm install wau-sdk@1.3.3 --dry-run: 全部 deps resolve
+- (publish 后) `/tmp` 真实 install + grep `WAU_DEFAULT_USER_AGENT` = `wau-typescript-sdk/wau/v1.3.2` (源码不变,dist 无 diff)
+
+---
+
 ## [1.3.2] — v1.3.2 "Wau RPC full unlock (2026-07-13, wau-team 一键全干拍板)"
 
 ### Added — 4 method full RPC (per homerail-end.md §三.1 + WAU-develop log wau-homerail/homerail-end.md §十 ask 1)
