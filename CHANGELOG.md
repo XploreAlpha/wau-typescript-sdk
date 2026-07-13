@@ -7,6 +7,48 @@ but the **JSON-RPC envelope + wire format MUST match** for all schemas.
 
 ---
 
+## [1.3.4] — v1.3.4 "Patch: auto-add `.js` to relative imports on emit (2026-07-13, 路径 Y 拍板)"
+
+### Fixed
+
+- **ESM relative imports**: `dist/**/*.js` no longer uses bare relative paths like
+  `from "./errors"`. A new `scripts/postbuild.mjs` is invoked after `tsc` and
+  rewrites every relative import (`./X` or `../X`) to append `.js`, so
+  Node 24's strict ESM resolver can find the file. Without this fix,
+  `npm install wau-sdk@1.3.3` succeeds but `import 'wau-sdk/wau'`
+  immediately fails with `ERR_MODULE_NOT_FOUND` for the first
+  relative import reached.
+  (Discovered via post-publish audit at 2026-07-13 ~14:08.)
+
+- **Root cause**: `tsconfig.json` uses `"moduleResolution": "Bundler"`, which
+  makes `tsc` emit ESM without the `.js` extension. Dev experience (using
+  Bundler resolution in source) is preserved; only the published `dist/`
+  gets the extension injected at build time.
+
+### Changed
+
+- package.json version: 1.3.3 → 1.3.4
+  (npm disallows republishing the same version; 1.3.3 stays broken on npm).
+- package.json scripts: added `postbuild: "node scripts/postbuild.mjs"` so
+  `npm run build` automatically runs the `.js` injector.
+- new file: `scripts/postbuild.mjs` — pure Node stdlib (no new dependency).
+  Not published to npm (per `package.json` `files: ["dist","README.md","LICENSE"]`).
+
+### Why (背景)
+
+- 7-13 publish v1.3.2 + v1.3.3 期间,wau-team session 跑了 4 维度 audit (npm view,
+  install test, ERROR_MAPPING test, functional smoke test)。
+- 5 个 audit 维度里有 1 个被 ETARGET (dep typo) 掩盖 — Node ESM .js extension miss。
+- 本 fix 是 audit 表里的"critical path" — 没它任何 wau-sdk 消费者都会 fail。
+
+### Test
+
+- `npm run build`: tsc 0 error + postbuild 打印`N file(s), M imports +.js`
+- `npm view wau-sdk@1.3.4 dist.unpackedSize` 比 `1.3.3` 略大(因为 .js 字符串加长 ~6-8 字节/import)
+- 真 install + `node -e "import('wau-sdk/wau').then(m => console.log(Object.keys(m)))"` 见到 11 个 export
+
+---
+
 ## [1.3.3] — v1.3.3 "Patch: fix `dingtalk-stream` dep typo (2026-07-13, same-day from 1.3.2 publish)"
 
 ### Fixed
