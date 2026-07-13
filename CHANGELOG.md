@@ -7,6 +7,56 @@ but the **JSON-RPC envelope + wire format MUST match** for all schemas.
 
 ---
 
+## [1.3.2] — v1.3.2 "Wau RPC full unlock (2026-07-13, wau-team 一键全干拍板)"
+
+### Added — 4 method full RPC (per homerail-end.md §三.1 + WAU-develop log wau-homerail/homerail-end.md §十 ask 1)
+
+- WauClient 4 method 替换 v1.3.1 stub throw → 真 fetch 实装:
+  1. `registerAgent()` — POST `{registry_url}/v1/agents` (wau-registry Phase 1 /v1 alias per commit 4df570f)
+  2. `heartbeat()` — POST `{registry_url}/v1/agents/heartbeat` (wau-registry Phase 1 /v1 alias)
+  3. `recommendWorkflow(query)` — POST `{edge_url}/v1/recommend` (wau-edge Phase 2 proxy per commit 18a12a6)
+  4. `matchWauPattern(query)` — POST `{edge_url}/v1/patterns/match` (wau-edge Phase 3 STUB 501 per commit 262f8cf, 等 wau-dag-patterns 仓)
+- JWT 4-claim bearer (per D66=B + #21): `Authorization: Bearer ${config.auth_token}` (从 config.auth_token 读)
+- AbortController 超时机制: 默认 30s (config.timeout_ms 覆盖)
+- 错误分层:
+  - 401/403 → WauWorkflowError('AUTH_FAILED', retryable=true)
+  - 400     → WauWorkflowError('INVALID_WORKFLOW_TYPE', retryable=false)
+  - 404     → WauWorkflowError('SERVER_ERROR', retryable=false)
+  - 5xx     → WauWorkflowError('SERVER_ERROR', retryable=true)
+  - timeout → WauWorkflowError('TIMEOUT', retryable=true)
+  - network → WauWorkflowError('NETWORK_ERROR', retryable=true)
+- Endpoint URL 修正: 去掉 `/wau/` namespace 前缀, 跟 wau-registry v1.0.1 /v1 alias + wau-edge v1.0.1 /v1 routes 1:1 对齐
+
+### Changed
+
+- WAU_DEFAULT_USER_AGENT: `wau-typescript-sdk/wau/v1.3.1` → `wau-typescript-sdk/wau/v1.3.2`
+- Client constructor: 改用 sync 赋值 (was void _resolvedTimeoutMs stub 占位)
+- package.json version: 1.3.1 → 1.3.2
+- tests/wau/client.test.ts: 24 测试全重写 (从 4 method throw 改成 4 method fetch happy/error/network path)
+
+### Protocol Compliance
+
+- ✅ D60 additive: 0 改老 SDK exports (只改 client.ts 实装 + 替换 test)
+- ✅ D78 byte-equal: WauWorkflow 19 字段 snake_case, 与 wau-go-sdk / python / rust / java byte-equal
+- ✅ D66=B: JWT 4-claim bearer (sub/aud/exp/scope)
+- ✅ #14 A: snake_case field name (auth_token, registry_url, edge_url 等)
+- ✅ #15 B: recommendWorkflow/matchWauPattern 走 edge_url
+- ✅ #17 B: harness 校验在 homerail PR-E handler, SDK 端不重复
+- ✅ #18 b: retryable flag 区分 registerAgent(false) 一次性 vs 其他(true)
+- ✅ #21 DAG-aware RPC schema: JWT 4-claim 注入 ready
+- ✅ #22 失败回退: retryable flag + DEFAULT_RETRYABLE map
+- ✅ Feedback-no-branches-until-1.0-0: 单分支 main, 0 PR
+- ✅ Feedback-cli-cant-push-git: commit 由 Claude 做 (per user 7-13 一键全干), push 由 user 手动
+
+### Test
+
+- vitest: 278 tests PASS (0 failed, 2 pre-existing DataCloneError 来自 vitest vendor / 不影响 PASS 计数)
+- typecheck: pre-existing 4 错 (src/index.ts Duplicate 'Task' + src/mcp/client.ts unused imports) 跟本改动无关
+- committable after this update (per user 7-13 "开发完统一测试通过在publish"):
+  - npm publish wau-sdk@1.3.2 (user 手动, per feedback-cli-cant-push-git)
+  - 切 homerail dep "file:../../wau-typescript-sdk" → "^1.3.2" (user/homerail session)
+  - homerail PR-E + PR-B-imp 部分可立即实装 (B-rcp 等 v1.3.3 wau-dag-patterns 仓)
+
 ## [1.3.1] — v1.3.1 "Wau client add (v1.0.1 Phase 0 拍板, 2026-07-12)"
 
 ### Added — wau/ sub-package (per SDK Consumer Contract §二)

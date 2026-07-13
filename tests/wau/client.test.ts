@@ -1,19 +1,24 @@
 /**
- * Wau client 单测 (wau-typescript-sdk v1.3.1, per v1.0.1 Phase 0 拍板 + SDK Consumer Contract §二).
+ * Wau client 单测 (wau-typescript-sdk v1.3.2, per WAU-develop log wau-homerail/homerail-end.md §三.1).
  *
- * 镜像 wau-go-sdk / wau-python-sdk / wau-rust-sdk / wau-java-sdk 5 SDK byte-equal 测试模式 (per D78).
+ * ⭐ v1.3.2 — full RPC unlock (per wau-edge Phase 2/3 + wau-registry Phase 1 /v1 alias)
+ * 4 method endpoint paths:
+ *   - registerAgent   POST {registry_url}/v1/agents
+ *   - heartbeat       POST {registry_url}/v1/agents/heartbeat
+ *   - recommendWorkflow POST {edge_url}/v1/recommend
+ *   - matchWauPattern   POST {edge_url}/v1/patterns/match (stub 501 等 wau-dag-patterns 仓)
  *
- * 覆盖矩阵 (8 测试):
- *   1. constructor: default fetch (Node 18+)
- *   2. constructor: missing fetch → throw WauWorkflowError
- *   3. constructor: custom fetchImpl 注入
- *   4. registerAgent: throw WauWorkflowError('SERVER_ERROR', retryable=false) — caller 不 retry
- *   5. heartbeat: throw WauWorkflowError('SERVER_ERROR', retryable=true) — caller 可 retry
- *   6. recommendWorkflow: throw WauWorkflowError('SERVER_ERROR', retryable=true)
- *   7. matchWauPattern: throw WauWorkflowError('SERVER_ERROR', retryable=true)
- *   8. WauWorkflowError: retryable flag by code (per #22 失败回退)
+ * 覆盖矩阵 (16 测试):
+ *   - 3 constructor: default fetch / no fetch throw / custom fetchImpl
+ *   - 4 method happy path: status 200/204 → 返 WauWorkflow / void
+ *   - 4 method error mapping: 401/400/404/501/5xx → 返 WauWorkflowError(retryable)
+ *   - 1 method network/timeout → WauWorkflowError(NETWORK_ERROR / TIMEOUT, retryable=true)
+ *   - 1 endpoint URL 验证(拼接各 method URL 正确)
+ *   - 1 WAU_DEFAULT_USER_AGENT 是 v1.3.2
+ *   - 2 default constants check
+ *   - 4 sample workflow fixture sanity
  *
- * 镜像 src/ucp/tests 模式:fetchImpl 注入做 in-process mock, 不依赖 nock.
+ * Mock fetchImpl (in-process),不依赖 nock 跟 global fetch。
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -25,6 +30,7 @@ import {
   WauErrCodeServerError,
   WauErrCodeTimeout,
   WauErrCodeAuthFailed,
+  WauErrCodeInvalidWorkflowType,
   WauErrCodeNetworkError,
   WAU_DEFAULT_USER_AGENT,
   WAU_DEFAULT_TIMEOUT_MS,
@@ -32,7 +38,7 @@ import {
   type WauClientConfig,
   type WauClientOptions,
   type WauWorkflow,
-  type WauWorkflowErrorCode,
+  type FetchImpl,
 } from "../../src/wau";
 
 // ────────────────────────────────────────────────────────
@@ -49,9 +55,12 @@ const sampleConfig: WauClientConfig = {
     category: "USER_ENTRY",
     sub_capabilities: [
       { name: "voice-asr", version: "1.0", description: "ASR" },
+      { name: "voice-tts", version: "1.0", description: "TTS" },
+      { name: "dag-orchestration", version: "1.0", description: "DAG plan" },
     ],
     trust_exempt: true,
   },
+  auth_token: "test-jwt-4-claims", // per D66=B + #21 (snake_case #14 A)
 };
 
 const sampleWorkflow: WauWorkflow = {
@@ -70,24 +79,39 @@ const sampleWorkflow: WauWorkflow = {
   workflow_id: "wf-1",
   created_at: 0,
   user_id: "u-1",
-  // 9 optional / metadata / auth fields per SDK Consumer Contract §二.2
   original_query: "find me aspirin",
-  server_version: "1.3.1",
+  server_version: "1.3.2",
   trace_id: "t-1",
   ttl_ms: 60000,
   auth_user_id: "u-1",
   auth_claim_set: ["sub", "aud", "exp", "scope"],
 };
 
-/** Mock fetchImpl (测试用, 不发真实 HTTP) */
-const mockFetch = vi.fn();
+/**
+ * 工厂:mock response 工厂函数
+ */
+function makeResponse(status: number, body?: unknown): {
+  status: number;
+  text(): Promise<string>;
+  json(): Promise<unknown>;
+} {
+  const text = body === undefined ? "" : JSON.stringify(body);
+  return {
+    status,
+    text: async () => text,
+    json: async () => body,
+  };
+}
+
+/** Mock fetchImpl (test 用 mock function, 不发真实 HTTP) */
+const mockFetch = vi.fn() as unknown as FetchImpl;
 
 beforeEach(() => {
-  mockFetch.mockReset();
+  (mockFetch as unknown as ReturnType<typeof vi.fn>).mockReset();
 });
 
 // ────────────────────────────────────────────────────────
-// Test 1: constructor default fetch (Node 18+)
+// Constructor tests
 // ────────────────────────────────────────────────────────
 
 describe("WauClient constructor", () => {
@@ -95,10 +119,6 @@ describe("WauClient constructor", () => {
     const client = new WauClient(sampleConfig);
     expect(client).toBeInstanceOf(WauClient);
   });
-
-  // ────────────────────────────────────────────────────────
-  // Test 2: constructor: missing fetch → throw WauWorkflowError
-  // ────────────────────────────────────────────────────────
 
   it("throws WauWorkflowError if no fetchImpl and no global fetch", () => {
     const originalFetch = globalThis.fetch;
@@ -111,13 +131,9 @@ describe("WauClient constructor", () => {
     }
   });
 
-  // ────────────────────────────────────────────────────────
-  // Test 3: constructor: custom fetchImpl 注入
-  // ────────────────────────────────────────────────────────
-
   it("accepts custom fetchImpl injection", () => {
     const options: WauClientOptions = {
-      fetchImpl: mockFetch as unknown as WauClientOptions["fetchImpl"],
+      fetchImpl: mockFetch,
     };
     const client = new WauClient(sampleConfig, options);
     expect(client).toBeInstanceOf(WauClient);
@@ -125,61 +141,163 @@ describe("WauClient constructor", () => {
 });
 
 // ────────────────────────────────────────────────────────
-// Test 4-7: 4 method skeleton throws
+// 4 method happy path
 // ────────────────────────────────────────────────────────
 
-describe("WauClient 4 method skeleton (v1.3.1 stub)", () => {
+describe("WauClient 4 method happy path (v1.3.2 RPC)", () => {
   const client = new WauClient(sampleConfig, {
-    fetchImpl: mockFetch as unknown as WauClientOptions["fetchImpl"],
+    fetchImpl: mockFetch,
   });
 
-  // Test 4: registerAgent — retryable=false (per #22 失败回退, caller 不 retry)
-  it("registerAgent rejects with WauWorkflowError(retryable=false)", async () => {
-    await expect(client.registerAgent()).rejects.toThrow(WauWorkflowError);
-    await expect(client.registerAgent()).rejects.toMatchObject({
+  it("registerAgent POSTs to /v1/agents with 204 → resolves void", async () => {
+    (mockFetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeResponse(204),
+    );
+
+    await expect(client.registerAgent()).resolves.toBeUndefined();
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [url, init] = (mockFetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe("http://localhost:18401/v1/agents");
+    expect(init.method).toBe("POST");
+    expect(init.headers["Authorization"]).toBe("Bearer test-jwt-4-claims");
+    expect(init.headers["Content-Type"]).toBe("application/json");
+    expect(JSON.parse(init.body).name).toBe("homerail-voice");
+    expect(JSON.parse(init.body).skills).toEqual([
+      "voice-asr",
+      "voice-tts",
+      "dag-orchestration",
+    ]);
+  });
+
+  it("heartbeat POSTs to /v1/agents/heartbeat with 204 → resolves void", async () => {
+    (mockFetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeResponse(204),
+    );
+
+    await expect(client.heartbeat()).resolves.toBeUndefined();
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [url, init] = (mockFetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe("http://localhost:18401/v1/agents/heartbeat");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body).name).toBe("homerail-voice");
+  });
+
+  it("recommendWorkflow POSTs to /v1/recommend with 200 → returns WauWorkflow", async () => {
+    (mockFetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeResponse(200, sampleWorkflow),
+    );
+
+    const wf = await client.recommendWorkflow("find me aspirin");
+    expect(wf).toEqual(sampleWorkflow);
+
+    const [url, init] = (mockFetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe("http://localhost:18403/v1/recommend");
+    expect(JSON.parse(init.body)).toEqual({
+      query: "find me aspirin",
+      top_k: 3,
+      online_only: false,
+    });
+  });
+
+  it("matchWauPattern POSTs to /v1/patterns/match; 200 returns WauWorkflow, 501 throws WauWorkflowError(SERVER_ERROR, retryable=false)", async () => {
+    // 200 path: future when wau-dag-patterns ships
+    (mockFetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeResponse(200, sampleWorkflow),
+    );
+    const wf = await client.matchWauPattern("find me aspirin");
+    expect(wf).toEqual(sampleWorkflow);
+
+    // 501 path: current stub
+    (mockFetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeResponse(501, {
+        error: "patterns/match not implemented",
+        reason: "wau-dag-patterns repo TBD",
+      }),
+    );
+    await expect(client.matchWauPattern("find me aspirin")).rejects.toMatchObject({
+      code: WauErrCodeServerError,
+      retryable: false,
+    });
+
+    // verify endpoint URL once
+    const calls = (mockFetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls[0][0]).toBe("http://localhost:18403/v1/patterns/match");
+    expect(calls[1][0]).toBe("http://localhost:18403/v1/patterns/match");
+  });
+});
+
+// ────────────────────────────────────────────────────────
+// Error mapping (per #22 失败回退 + D78 byte-equal)
+// ────────────────────────────────────────────────────────
+
+describe("WauClient HTTP error mapping (v1.3.2)", () => {
+  const client = new WauClient(sampleConfig, { fetchImpl: mockFetch });
+
+  it("401 → WauWorkflowError(AUTH_FAILED, retryable=true)", async () => {
+    (mockFetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeResponse(401, { error: "unauthorized" }),
+    );
+    await expect(client.recommendWorkflow("q")).rejects.toMatchObject({
+      code: WauErrCodeAuthFailed,
+      retryable: true,
+    });
+  });
+
+  it("400 → WauWorkflowError(INVALID_WORKFLOW_TYPE, retryable=false)", async () => {
+    (mockFetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeResponse(400, { error: "bad request" }),
+    );
+    await expect(client.recommendWorkflow("q")).rejects.toMatchObject({
+      code: WauErrCodeInvalidWorkflowType,
+      retryable: false,
+    });
+  });
+
+  it("404 → WauWorkflowError(SERVER_ERROR, retryable=false)", async () => {
+    (mockFetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeResponse(404, { error: "not found" }),
+    );
+    await expect(client.recommendWorkflow("q")).rejects.toMatchObject({
       code: WauErrCodeServerError,
       retryable: false,
     });
   });
 
-  // Test 5: heartbeat — retryable=true
-  it("heartbeat rejects with WauWorkflowError(retryable=true)", async () => {
-    await expect(client.heartbeat()).rejects.toThrow(WauWorkflowError);
-    await expect(client.heartbeat()).rejects.toMatchObject({
+  it("500 → WauWorkflowError(SERVER_ERROR, retryable=true)", async () => {
+    (mockFetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeResponse(500, { error: "internal" }),
+    );
+    await expect(client.recommendWorkflow("q")).rejects.toMatchObject({
       code: WauErrCodeServerError,
       retryable: true,
     });
   });
 
-  // Test 6: recommendWorkflow — retryable=true
-  it("recommendWorkflow rejects with WauWorkflowError(retryable=true)", async () => {
-    await expect(
-      client.recommendWorkflow("find me aspirin"),
-    ).rejects.toThrow(WauWorkflowError);
-    await expect(
-      client.recommendWorkflow("find me aspirin"),
-    ).rejects.toMatchObject({
+  it("503 → WauWorkflowError(SERVER_ERROR, retryable=true)", async () => {
+    (mockFetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      makeResponse(503, { error: "service unavailable" }),
+    );
+    await expect(client.recommendWorkflow("q")).rejects.toMatchObject({
       code: WauErrCodeServerError,
       retryable: true,
     });
   });
 
-  // Test 7: matchWauPattern — retryable=true
-  it("matchWauPattern rejects with WauWorkflowError(retryable=true)", async () => {
-    await expect(
-      client.matchWauPattern("find me aspirin"),
-    ).rejects.toThrow(WauWorkflowError);
-    await expect(
-      client.matchWauPattern("find me aspirin"),
-    ).rejects.toMatchObject({
-      code: WauErrCodeServerError,
+  it("network error → WauWorkflowError(NETWORK_ERROR, retryable=true)", async () => {
+    (mockFetch as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("ECONNREFUSED"),
+    );
+    await expect(client.recommendWorkflow("q")).rejects.toMatchObject({
+      code: WauErrCodeNetworkError,
       retryable: true,
     });
   });
 });
 
 // ────────────────────────────────────────────────────────
-// Test 8: WauWorkflowError retryable flag (per #22)
+// WauWorkflowError retryable flag (per #22)
 // ────────────────────────────────────────────────────────
 
 describe("WauWorkflowError retryable (per #22 失败回退)", () => {
@@ -189,7 +307,7 @@ describe("WauWorkflowError retryable (per #22 失败回退)", () => {
     expect(isWauRetryable(err)).toBe(true);
   });
 
-  it("AUTH_FAILED is retryable=false", () => {
+  it("AUTH_FAILED is retryable=false (per caller policy)", () => {
     const err = new WauWorkflowError("auth", WauErrCodeAuthFailed);
     expect(err.retryable).toBe(false);
     expect(isWauRetryable(err)).toBe(false);
@@ -214,7 +332,7 @@ describe("WauWorkflowError retryable (per #22 失败回退)", () => {
 });
 
 // ────────────────────────────────────────────────────────
-// Sample workflow sanity (per SDK Consumer Contract §二.2 type shape)
+// Sample workflow fixture (per SDK Consumer Contract §二.2 type shape)
 // ────────────────────────────────────────────────────────
 
 describe("WauWorkflow sample fixture (19 fields shape)", () => {
@@ -234,7 +352,7 @@ describe("WauWorkflow sample fixture (19 fields shape)", () => {
 
   it("sample workflow has 6 metadata / auth fields", () => {
     expect(sampleWorkflow.original_query).toBe("find me aspirin");
-    expect(sampleWorkflow.server_version).toBe("1.3.1");
+    expect(sampleWorkflow.server_version).toBe("1.3.2");
     expect(sampleWorkflow.trace_id).toBe("t-1");
     expect(sampleWorkflow.ttl_ms).toBe(60000);
     expect(sampleWorkflow.auth_user_id).toBe("u-1");
@@ -248,12 +366,12 @@ describe("WauWorkflow sample fixture (19 fields shape)", () => {
 });
 
 // ────────────────────────────────────────────────────────
-// Default constants
+// Default constants (per SDK Consumer Contract §二.1)
 // ────────────────────────────────────────────────────────
 
 describe("Wau default constants", () => {
-  it("WAU_DEFAULT_USER_AGENT is v1.3.1", () => {
-    expect(WAU_DEFAULT_USER_AGENT).toBe("wau-typescript-sdk/wau/v1.3.1");
+  it("WAU_DEFAULT_USER_AGENT is v1.3.2", () => {
+    expect(WAU_DEFAULT_USER_AGENT).toBe("wau-typescript-sdk/wau/v1.3.2");
   });
 
   it("WAU_DEFAULT_TIMEOUT_MS is 30000", () => {
