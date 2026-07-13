@@ -140,7 +140,7 @@ export type {
   PushConfig,
   PushConfigResult,
   RPCErrorPayload as MCPRPCErrorPayload,
-  Task,
+  Task as MCPTask,
 } from "./mcp";
 export {
   ErrCodeInternal as MCPErrCodeInternal,

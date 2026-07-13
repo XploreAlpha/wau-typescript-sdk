@@ -43,7 +43,6 @@ import {
 } from "./errors";
 import { McpAuth, buildHeaders } from "./auth";
 import {
-  ALL_TOOL_NAMES,
   ToolCancelTask,
   ToolCreateTaskPushNotificationConfig,
   ToolGetExtendedAgentCard,
@@ -54,7 +53,6 @@ import {
   ToolSendMessage,
   ToolStreamMessage,
   ToolSubscribeToTask,
-  isStreamingTool,
 } from "./tools";
 import {
   openStream,
