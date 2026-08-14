@@ -1,207 +1,209 @@
-# wau-typescript-sdk
+# wau-sdk
 
-> **WAU TypeScript SDK v1.0.0 GA** — 官方 TypeScript / JavaScript 客户端,WAU-core-kernel 智能调度内核接入入口
-> v0.7.0 "Amber" 🔷 — **v1.0.0 = 2026-06-25 GA**(M3 W6 完成,2026-07-25 W7.7 文档校准)
+> **Official TypeScript / JavaScript SDK for [WAU-core-kernel](https://github.com/xplorealpha/WAU-core-kernel) — AI agent dispatch, gRPC + HTTP, 8 bot platforms, UCP commerce, MCP tooling.**
 
-[![npm](https://badge.fury.io/js/wau-sdk.svg)](https://www.npmjs.com/package/wau-sdk)
-[![Version](https://img.shields.io/badge/version-v1.0.0-blue?style=flat-square)](https://www.npmjs.com/package/wau-sdk)
-[![TypeScript](https://img.shields.io/badge/typescript-5.4%2B-blue)](https://www.typescriptlang.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[English](README.md) | [中文](README.zh-CN.md)
 
-## 状态
+[![npm version](https://badge.fury.io/js/wau-sdk.svg)](https://www.npmjs.com/package/wau-sdk)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue)](https://www.typescriptlang.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/wau/wau-typescript-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/wau/wau-typescript-sdk/actions)
+[![npm downloads](https://img.shields.io/npm/dm/wau-sdk)](https://www.npmjs.com/package/wau-sdk)
 
-✅ **v1.0.0 GA** (2026-06-25 → 2026-07-25 W7.7 文档校准) — **Public API stable**
+---
 
-| 阶段 | 估时(plan §5.5) | 实际 | 状态 |
-|---|---|---|---|
-| W6.5-6 脚手架 (package.json + tsconfig + vitest) | 0.5 d | ~0.2 d | ✅ |
-| W6.5-6 翻译 wau-circuit (154 行 Go → ~150 行 TS) | 0.5 d | ~0.2 d | ✅ |
-| W6.5-7 Client + 4 服务 + 装饰器链 | 2 d | ~0.3 d | ✅ |
-| W6.5-7 测试 (5 场景契约 + 8 服务单测 + 94.98% 覆盖率) | 1 d | ~0.2 d | ✅ |
-| W6.5-7 docs + 4 examples | 0.5 d | ~0.1 d | ✅ |
-| W7.7 Public API stable + deprecation policy 文档校准 | 0.05 d | ~0.05 d | ✅ |
-| tag v1.0.0 + 发 npm | 0.5 d | ⏳ 用户手动(已 tag,发包待你) |
+## Features
 
-**实际完成 ~1d**(估时 5d,提前 4d)
+A single typed client that bundles every WAU surface area:
 
-## 安装
+- **Core `Client`** with 6 sub-clients wired through retry + circuit breaker + JWT signer:
+  - `client.kernel` — `/healthz`, `/readyz`, kernel info
+  - `client.agents` — register, list, score, heartbeat
+  - `client.tasks` — submit (sync + async), list, fetch
+  - `client.intent` — intent resolution (gRPC stub for v1.4+)
+  - `client.handshake` — multi-agent handshake protocol (v0.8.0+)
+  - `client.chat` — OpenAI-compatible `/v1/chat/completions` with SSE streaming
+- **`UCPClient`** (v1.3.3+) — Universal Commerce Protocol over JSON-RPC 2.0: 11 commerce tools (`listProducts`, `addToCart`, `createCheckoutSession`, Stripe checkout, …) with 8 commerce DTOs byte-equal across all 5 SDKs
+- **`MCPClient`** (v1.3.2+) — Model Context Protocol over JSON-RPC 2.0: 8 sync tools (`sendMessage`, `getTask`, `listTasks`, …) + 2 SSE streaming tools (`streamMessage`, `subscribeToTask`)
+- **`WauClient`** (v1.3.1+, exported via `wau-sdk/wau` subpath) — workflow submission with 19-field `WauWorkflow` type, JWT 4-claim auth, heartbeat loop
+- **Bot platforms** — 8 native SDK integrations under `wau-sdk/bot/`:
+  Telegram, Discord, Webhook, Slack (Socket Mode), Feishu (Lark), QQ (WSS), DingTalk (Stream), Email (IMAP + SMTP)
+- **Resilience built-in** — exponential backoff with jitter (no external deps), 3 retries by default (200ms → 5s), circuit breaker ported byte-for-byte from `wau-circuit` Go reference
+- **Typed errors** — `APIError` + 5 HTTP 4xx subclasses + `CircuitOpenError` + `MaxRetriesError` + MCP / UCP / Wau error families
+- **Strict TypeScript** — no `any` in public surface; targets `tsc` strict + ESM-only output (Node 18+)
+- **78 source files / ~7.7K LOC**, **24 test files / ~5.2K LOC** with ~95% coverage
+
+---
+
+## Installation
 
 ```bash
-npm install wau-sdk@1.0.0
-# 或
-pnpm add wau-sdk@1.0.0
+npm install wau-sdk@^1.3.4
+# or
+pnpm add wau-sdk@^1.3.4
+# or
+yarn add wau-sdk@^1.3.4
 ```
 
-## 5 分钟快速开始
+**Requirements**: Node.js ≥ 18, TypeScript ≥ 5.0 (if using TS).
+
+---
+
+## Quickstart
 
 ```typescript
 import { Client, SubmitRequest } from "wau-sdk";
 
-const c = new Client("http://localhost:18400");
-const resp = await c.tasks.submit(new SubmitRequest("What is the capital of France?", 30000));
-console.log(`✅ ${resp.selectedAgent}: ${resp.response}`);
-```
+async function main(): Promise<void> {
+  const c = new Client("http://localhost:18400");
 
-异步 + 关闭:
-```typescript
-await c.close();
-```
+  try {
+    // Submit a task — kernel picks the best agent and dispatches over A2A
+    const resp = await c.tasks.submit(
+      new SubmitRequest("What is the capital of France?", 30_000)
+    );
+    console.log(`agent: ${resp.selectedAgent} (score=${resp.score.toFixed(2)})`);
+    console.log(`decision: ${resp.decision.decision_time_ms}ms`);
+    console.log(`a2a: ${resp.a2a_call_ms}ms`);
+    console.log(`response: ${resp.response}`);
+  } finally {
+    await c.close();
+  }
+}
 
-## 核心特性
-
-- **11 HTTP 端点 × 2 同步/异步 = 22 方法**(P1 阶段)
-- **typed errors**:`APIError` + 5 个 4xx 子类 + `CircuitOpenError` + `MaxRetriesError`
-- **重试**:指数退避 + 抖动(自写,无外部依赖),默认 3 次 / 200ms-5s
-- **熔断**:集成 wau-circuit(154 行 Go → ~150 行 TypeScript 翻译),3 SDK 行为字节级一致
-- **HS256 鉴权**:JWT Bearer(jsonwebtoken),5min exp,UUID v4 jti 防重放
-- **gRPC stub**:`IntentService` 4 方法返 `NotImplementedError`(P2 推 M3.1)
-
-## 测试
-
-```bash
-# 全部测试(57 passed in ~0.5s)
-npx vitest run
-
-# 带覆盖率(94.98%)
-npx vitest run --coverage
-
-# 5 场景契约
-npx vitest run tests/contract/
-
-# 翻译测试
-npx vitest run tests/circuit.test.ts
-```
-
-**当前覆盖率: 94.98%**(超过 plan §10.2 80% 门槛 15%)
-
-## 关联仓库
-
-- 上游: [wau-core-kernel](https://github.com/XploreAlpha/WAU-core-kernel) (HTTP :18400)
-- 兄弟: [wau-go-sdk](https://github.com/XploreAlpha/wau-go-sdk) | [wau-python-sdk](https://github.com/XploreAlpha/wau-python-sdk)
-- 依赖: [wau-circuit](https://github.com/XploreAlpha/wau-circuit) (熔断器,TypeScript 翻译版)
-- 共享契约: [wau-go-sdk/tests/contract-golden/](https://github.com/XploreAlpha/wau-go-sdk/tree/main/tests/contract-golden) (5 黄金 JSON)
-
-## 计划文档
-
-- [M3 W6 进度报告](/home/inamoto888/WAU-develop/develop-log/kernel/v0.6.0/2026-06-14-M3-W6.7-10.1-wau-python-sdk-progress.md)
-- [M3 计划](/home/inamoto888/.claude/plans/lexical-orbiting-nova.md)
-- [wau-go-sdk ADR-0001~0004](https://github.com/XploreAlpha/wau-go-sdk/tree/main/docs/adr)
-
-## v0.9.0 "Acorn" 收口段(2026-09-15 GA)
-
-上文介绍 v0.7.0 计划 + ADR 链接。本段为 v0.9.0 GA 增量补充。
-
-### 角色
-
-| OS 类比 | Client SDK(TypeScript / Node.js,前端入口)|
-|---|---|
-| 部署 | npm package |
-| 通信 | gRPC-web → wau-edge :18401(浏览器) 或 gRPC → wau-llm-router(Node.js)|
-| 状态 | v1.1.0 同步发版(2026-07-13)|
-
-### v0.9.0 新增
-
-- **直连 + gRPC-web 双栈**(per [[project-v0-9-0-M3-§3.7-chat-sdk-4langs-2026-06-30]])
-- **bot/ 字段 5/5 对齐 4 SDK**(per [[project-v0-9-0-stage0-closure-2026-06-28]])
-- **TypeScript strict 类型**:ResolveInput / LLMDecision 完整
-
-### 5 行 TS bot
-
-```typescript
-import { Bot } from "wau-typescript-sdk/bot/telegram";
-
-const bot = new Bot({
-  token: process.env.TELEGRAM_BOT_TOKEN!,
-  tenantId: "acme",
+main().catch((err: unknown) => {
+  console.error("Error:", err);
+  process.exit(1);
 });
-bot.start();
 ```
 
-### v0.9.0 "Acorn" 5 份核心文档
+ESM-only — use `import { ... } from "wau-sdk"`. The package ships pre-built ESM in `dist/`.
 
-| # | 文件 | 内容 |
+---
+
+## Public API
+
+### Top-level exports
+
+| Symbol | Kind | Description |
 |---|---|---|
-| 1 | [README.md](README.md)(本文件)| SDK 入口 |
-| 2 | [QUICKSTART.md](QUICKSTART.md) | 15 分钟跑通 |
-| 3 | [DEPLOY.md](DEPLOY.md) | npm 发布 |
-| 4 | [ARCHITECTURE.md](ARCHITECTURE.md) | 模块 + 4 SDK 对齐 |
-| 5 | [CHANGELOG.md](CHANGELOG.md) | v0.7.0 + v1.1.0 倒序(27 行已存在)|
+| `Client` | class | Main HTTP client (orchestrates transport + retry + circuit + signer) |
+| `UCPClient` | class | Universal Commerce Protocol client (JSON-RPC 2.0 over HTTP) |
+| `MCPClient` | class | Model Context Protocol client (JSON-RPC 2.0 over HTTP, SSE streaming) |
+| `WauClient` | class | WAU workflow client (re-exported from `wau-sdk/wau`) |
+| `APIError`, `BadRequestError`, `UnauthorizedError`, `ForbiddenError`, `NotFoundError`, `ConflictError`, `CircuitOpenError`, `MaxRetriesError`, `NotImplementedError`, `WauError` | classes | Typed error hierarchy |
+| `Breaker`, `CircuitState`, `Retrier`, `Signer`, `Transport` | classes | Building blocks (advanced) |
+| `DEFAULT_CIRCUIT_CONFIG`, `DEFAULT_RETRY_CONFIG`, `Role` | const/enum | Default config + agent roles |
 
-### 历史锚点
+### Sub-clients (via `client.<service>`)
 
-- v1.1.0 SDK 同步发版(per [[project-v0.8.0-GA-2026-07-13]])
+| Service | Methods (sync / async) | Notes |
+|---|---|---|
+| `client.kernel` | `healthz()`, `readyz()`, `info()` | Liveness/readiness + kernel metadata |
+| `client.agents` | `register()`, `list()`, `score()`, `heartbeat()` | Agent registry + scoring |
+| `client.tasks` | `submit()`, `submitAsync()`, `list()`, `fetch()` | L4 dispatch (sync + async) |
+| `client.intent` | `resolve()` *(stub)* | Returns `NotImplementedError` until v1.4 |
+| `client.handshake` | `start()`, `accept()`, `reject()`, `list()` | Multi-agent handshake (v0.8.0+) |
+| `client.chat` | `complete()`, `stream()` | OpenAI-compatible chat (SSE) |
 
-## 协议
+---
 
-MIT © 2026 youhaoxi
-## v1.3.3 新增:UCP 客户端(per D88.7)
+## Sub-modules
 
-11 commerce tool(`listProducts` / `addToCart` / `createCheckoutSession` ... )走 JSON-RPC 2.0 over HTTP(POST `{baseURL}/ucp`),8 commerce DTO 跨 5 SDK byte-equal(per D13)。
+The package exposes two subpath imports:
 
-```typescript
-import { UCPClient } from "wau-sdk";
-
-// 基础 — bearer token 可选(per D78/D79/D80 OAuth 2.0 identity_linking)
-const ucp = new UCPClient("https://kernel.example.com", {
-  bearerToken: "oauth-jwt",
-});
-const products = await ucp.listProducts();
-const cart = await ucp.addToCart("prod-123", 2);
-
-// W3 stub — kernel ErrNotImplemented → SDK 抛 W5 友好提示
-try {
-  const session = await ucp.createCheckoutSession(cart.cart_id!);
-} catch (e) {
-  console.warn("Stripe W5+ 集成中,当前 stub:", (e as Error).message);
+```jsonc
+// package.json (excerpt)
+"exports": {
+  ".":        { "import": "./dist/index.js",        "types": "./dist/index.d.ts" },
+  "./wau":    { "import": "./dist/wau/index.js",    "types": "./dist/wau/index.d.ts" }
 }
 ```
 
-11 commerce tool + 8 commerce DTO + 5 spec code + 5 UCP error code(`-32101 ~ -32105`)+ Stripe 透明集成(SDK 0 Stripe dep,kernel `ucp_stripe.go` 转发)。
+- **`wau-sdk`** (default) — `Client` + all 6 sub-clients + UCP + MCP + errors + types.
+- **`wau-sdk/wau`** — `WauClient` only (workflow submission). Use when you only need workflow dispatch and want a smaller import graph:
 
-## Bot Platforms
+```typescript
+import { WauClient, WauWorkflow } from "wau-sdk/wau";
 
-WAU SDK 通过两段责任分工对接 N 个 Bot 平台:
+const wau = new WauClient({
+  baseURL: "https://kernel.example.com",
+  tenantId: "acme",
+});
 
-| 责任段 | 仓 | 文件 | 覆盖范围 |
-|---|---|---|---|
-| **公共契约** | 本 SDK(`bot/common/bots_service.<ext>`) | `Bot` + `BotsService` 抽象接口 | 5 SDK 100% 一致(per M10 N1)|
-| **C 端 SDK bot/ 子包** | 本 SDK | `bot/{telegram,discord,webhook,slack,feishu,qq,dingtalk,email}/` | 每个 SDK 自带 8 平台(W5 Q1=B 反 W4.1 拍板)|
-| **服务端 8 平台 adapter** | `wau-channel` | `internal/adapter/{slack,feishu,dingtalk,qq,email,telegram,discord,webhook}/*_real.go` | 全部 8 平台完整 4 步(per W7 2026-07-07 SDK 接通)|
-| **服务端 bot HTTP API** | `wau-edge` | `POST /v1/bots/{bot_id}/messages`(per M10 N3) | Bot → 后端路由 |
+const wf: WauWorkflow = {
+  workflow_type: "research",
+  requester_agent_id: "orchestrator-01",
+  // ...19 fields total
+};
 
-**Bot Platforms 公开能力表**(2026-07-13, **W5 update 反 W4.1**):
-
-| Platform     | 本 SDK bot/ | wau-channel adapter | 状态 |
-|--------------|-------------|---------------------|------|
-| Telegram     | ✅ | ✅ | 双端完整 |
-| Discord      | ✅ | ✅ | 双端完整 |
-| Webhook      | ✅ | ✅ | 双端完整 |
-| Slack        | ✅ Stage 1 native | ✅ 完整 4 步(`@slack/web-api` v7+ + `@slack/socket-mode` v1+) | W6.2 closure: Socket Mode 集成 (~237 LoC) |
-| Feishu       | ✅ Stage 1 native | ✅ 完整 4 步(`@larksuiteoapi/node-sdk` v1+ LarkChannel) | W6.2 closure: EventDispatcher 集成 (~223 LoC) |
-| QQ           | ✅ Stage 1 native | ✅ 完整 4 步(`axios` + `ws` fallback) | W6.2 closure: 自实现 WSS gateway 4 类 opcode (~468 LoC) |
-| DingTalk     | ✅ Stage 1 native | ✅ 完整 4 步(`dingtalk-stream` v2.1.0 DWClient) | W6.2 closure: TOPIC_ROBOT 订阅 + 加签 (~287 LoC) |
-| Email        | ✅ Stage 1 native | ✅ 完整 4 步(`imap` v0.8+ + `nodemailer` v6+) | W6.2 closure: IDLE + SMTP 发送 (~472 LoC) |
-
-> **W5 反 W4.1 设计反转**(per 2026-07-13 Q1=B 拍板):SDK 端 bot/ 现已支持 8 平台(原 W4.1 仅 3 平台);5 平台 (Slack/Feishu/QQ/DingTalk/Email) 走 SDK 端 Stage 0 stub 替代原"⛔ 走服务端 adapter"。Stage 1 路径(per M11 W5-W6)将替换 stub 为 native SDK integration。W7 之后 wau-channel 8 平台 adapter 全部完整(per W7 2026-07-07 SDK 接通)。
->
-> **W6.2 closure (2026-07-09)**: 5 平台 (Slack/Feishu/QQ/DingTalk/Email) Stage 0 stub → Stage 1 native SDK integration 100% 收口(per M10 N1 + D13 + D78 + D80 公共契约)。
->
-> **v1.3.0 field add (W7.1, 2026-07-09)**:Add `botUuid` (UUID v4, server-assigned) to `Account` + `RegisterBotRequest` interfaces in `src/bot/common/account.ts`(per D78/D79/D80 拍板,D60 additive,0 breaking)。老 SDK v1.2.0 向后兼容(server 自动从 botId slug 寻址并生成 botUuid)。
-
-**使用范式**(4 SDK 一致,Go SDK 示例):
-
-```go
-// SDK 端(B 端开发者):通过 BotsService 公共契约操作 bot
-client.Bots().Register(ctx, wau.RegisterBotRequest{
-    TenantID:     "acme",
-    Universe:     "default",
-    PublicBotID:  "weather-bot",
-})
-
-// 平台通信端:平台 SDK 自动选择 — 通过 wau-channel 服务端 adapter 调用
-// SDK 不需要直接 import slack/feishu/... — 走 wau-channel HTTP API
+const { workflow_id } = await wau.submit(wf);
 ```
 
-> **本节由 W4.1 README 标准化自动 append,2026-07-13**。D60 additive:0 改 README 老内容。
->
-> 关联:`WAU-develop/develop-log/kernel/v1.0.0/stage2/2026-07-13-PROGRESS-W4-launch.md`
+---
+
+## Examples
+
+Five runnable examples ship under `examples/`. Each has its own `main.ts` you can run with `npx tsx`:
+
+| Example | Path | What it shows |
+|---|---|---|
+| **`chat_stream`** | [`examples/chat_stream/main.ts`](examples/chat_stream/main.ts) | OpenAI-compatible SSE chat completion with chunk delta accumulation |
+| **`five_scenarios`** | [`examples/five_scenarios/main.ts`](examples/five_scenarios/main.ts) | The 5 canonical contract scenarios (golden JSON parity with `wau-go-sdk`) |
+| **`heartbeat_loop`** | [`examples/heartbeat_loop/main.ts`](examples/heartbeat_loop/main.ts) | Agent heartbeat keep-alive loop |
+| **`list_agents`** | [`examples/list_agents/main.ts`](examples/list_agents/main.ts) | `client.agents.list()` + pagination |
+| **`submit_task`** | [`examples/submit_task/main.ts`](examples/submit_task/main.ts) | The canonical `client.tasks.submit()` end-to-end call |
+
+Run any of them:
+
+```bash
+cd examples/submit_task
+npx tsx main.ts "What is the capital of France?"
+```
+
+---
+
+## Documentation
+
+- **[API.md](API.md)** — full generated API doc for every exported symbol (33 KB)
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — module layout, data flow, gRPC-web vs Node.js direct, key design decisions
+- **[QUICKSTART.md](QUICKSTART.md)** — 15-minute runbook for new users
+- **[DEPLOY.md](DEPLOY.md)** — npm publish workflow + CI/CD
+- **[RELEASING.md](RELEASING.md)** — release checklist (7 sections)
+- **[FAQ.md](FAQ.md)** — frequently asked questions (16 KB)
+- **[CHANGELOG.md](CHANGELOG.md)** — full version history
+- **[wau-protocol-spec](https://github.com/youhaoxi/WAU-protocol-spec)** — wire format reference (canonical)
+- **[wau-go-sdk](https://github.com/xplorealpha/wau-go-sdk)** — sibling Go SDK (golden contract source)
+
+---
+
+## Versioning
+
+This SDK is **lockstep-versioned** with the WAU 19-repo monorepo. The current
+package version (`1.3.4`) matches the corresponding kernel version exactly — if
+your kernel is on `v1.3.x`, pin to `wau-sdk@^1.3.4`.
+
+We follow [Semantic Versioning](https://semver.org/):
+
+- **Patch** (`1.3.4` → `1.3.5`) — bug fixes, ESM/postbuild tweaks, additive error fields. Always safe to upgrade.
+- **Minor** (`1.3.x` → `1.4.0`) — new sub-client or method, new bot platform, non-breaking type additions. Deprecations announced 1 minor ahead.
+- **Major** (`1.x.y` → `2.0.0`) — breaking changes to public API surface. Reserved for the rare cases when the wire format itself changes.
+
+> **Deprecation policy**: methods are marked `@deprecated` one minor release
+> before removal. No public method has been removed since `v1.0.0`.
+
+---
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md)
+for development setup, test/lint workflow, commit message convention, and the
+version sync policy with `wau-core-kernel`.
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 youhaoxi
+
+Official SDK for the [WAU-core-kernel](https://github.com/xplorealpha/WAU-core-kernel) AI agent dispatch kernel. Lockstep with kernel `v1.3.4`.
