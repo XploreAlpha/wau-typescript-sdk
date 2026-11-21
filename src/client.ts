@@ -20,11 +20,12 @@ import { AgentsService } from "./agents";
 import { ChatService } from "./chat";  // v0.9.0 M3 §3.7
 import { HandshakeService } from "./handshake";  // v0.8.0 M5-1 B.1
 import { IntentService } from "./intent";
+import { A2AClient } from "./a2a";
 import { KernelService } from "./kernel";
 import { TasksService } from "./tasks";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-const DEFAULT_USER_AGENT = "wau-typescript-sdk/0.6.0-preview.1";
+const DEFAULT_USER_AGENT = "wau-typescript-sdk/1.4.0";
 
 export class Client {
   public readonly baseURL: string;
@@ -38,6 +39,8 @@ export class Client {
   public readonly agents: AgentsService;
   public readonly tasks: TasksService;
   public readonly intent: IntentService;
+  /** ★ 2026-11-19:A2A v1.0 客户端 */
+  public readonly a2a: A2AClient;
   public readonly handshake: HandshakeService;  // v0.8.0 M5-1 B.1
   public readonly chat: ChatService;  // v0.9.0 M3 §3.7
 
@@ -78,7 +81,8 @@ export class Client {
     this.kernel = new KernelService(this.transport);
     this.agents = new AgentsService(this.transport);
     this.tasks = new TasksService(this.transport);
-    this.intent = new IntentService();
+    this.intent = new IntentService(this.transport);
+    this.a2a = new A2AClient(this.transport); // ★ 2026-11-19
     this.handshake = new HandshakeService(this.transport, userAgent);  // v0.8.0 M5-1 B.1
     this.chat = new ChatService(this.transport);  // v0.9.0 M3 §3.7
   }

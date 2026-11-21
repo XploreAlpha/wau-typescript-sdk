@@ -63,7 +63,7 @@ export class Transport {
       baseURL,
       timeout: options.timeoutMs ?? 30_000,
       headers: {
-        "User-Agent": options.userAgent ?? "wau-typescript-sdk/0.6.0-preview.1",
+        "User-Agent": options.userAgent ?? "wau-typescript-sdk/1.4.0",
         Accept: "application/json",
       },
       ...(options.transport ? { adapter: options.transport as never } : {}),
@@ -74,7 +74,8 @@ export class Transport {
     method: string,
     path: string,
     body?: unknown,
-    params?: Record<string, string | number>
+    params?: Record<string, string | number>,
+    extraHeaders?: Record<string, string>
   ): Promise<unknown> {
     const headers: Record<string, string> = {};
     if (body !== undefined) {
@@ -83,10 +84,22 @@ export class Transport {
     if (this.signer) {
       headers["Authorization"] = `Bearer ${this.signer.sign()}`;
     }
+    // ★ 2026-11-19:自定义 header 覆盖默认值
+    // (A2A 的 Authorization 要用 agent 的 peer token,不是 kernel 的 JWT)
+    if (extraHeaders) {
+      Object.assign(headers, extraHeaders);
+    }
 
     const config: AxiosRequestConfig = {
       method,
-      url: path.startsWith("/") ? path : `/${path}`,
+      // ★ 2026-11-19:绝对 URL 直接用(不拼 baseURL)
+      // A2A 客户端要连**别的** agent 的地址,不是 kernel
+      url:
+        path.startsWith("http://") || path.startsWith("https://")
+          ? path
+          : path.startsWith("/")
+            ? path
+            : `/${path}`,
       headers,
       params,
       data: body,
@@ -174,7 +187,7 @@ export class Transport {
       Accept: "text/event-stream",
       "User-Agent":
         (this.http.defaults.headers.common["User-Agent"] as string) ??
-        "wau-typescript-sdk/0.6.0-preview.1",
+        "wau-typescript-sdk/1.4.0",
     };
     if (this.signer) {
       headers["Authorization"] = `Bearer ${this.signer.sign()}`;

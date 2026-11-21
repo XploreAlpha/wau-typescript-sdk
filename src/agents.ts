@@ -40,35 +40,46 @@ export class AgentsService {
     if (opts.status) params.status = opts.status;
     if (opts.search) params.search = opts.search;
 
-    const data = (await this.transport.request(
+    const raw = (await this.transport.request(
       "GET",
       "/registry/agents",
       undefined,
       params
-    )) as AgentListResponse;
+    )) as unknown;
+
+    // ★ 2026-11-19:kernel 的 GET /registry/agents 返回**裸数组**
+    // (实测:[{"id","name","url","version","skills","universe"}, ...]),
+    // 不是 {agents:[...]} ⇒ 旧解析拿不到 agents。
+    // ⇒ 兼容三种形状:裸数组 / {agents:[...]} / {cards:[...]}。
+    const items = extractAgentItems(raw);
+
+    const total = items.length;
 
     return new AgentListResponse(
-      (data.agents ?? []).map(
-        (a) =>
-          new Agent(
-            a.name,
-            a.id,
-            a.url,
-            a.description,
-            a.skills,
-            a.universes,
-            // v0.8.0 M3-2C: server JSON 返 snake_case universe_labels
-            // 旧 server 不会返此字段 → undefined,Agent 构造函数 universeLabels?: Record<string, string> 兼容
-            (a as { universe_labels?: Record<string, string> }).universe_labels,
-            a.trust,
-            a.status,
-            a.lastSeen
-          )
-      ),
-      data.total ?? 0,
-      data.page ?? 1,
-      data.pageSize ?? 10,
-      data.totalPages ?? 1
+      items.map((a) => {
+        // kernel 的元素用**单数** universe 字段;registry 卡片用复数 universes[]
+        const universes = [...((a.universes as string[]) ?? [])];
+        const universe = (a as { universe?: string }).universe;
+        if (universe && !universes.includes(universe)) universes.push(universe);
+        return new Agent(
+          (a.name as string) ?? "",
+          (a.id as string) ?? "",
+          (a.url as string) ?? "",
+          (a.description as string) ?? "",
+          (a.skills as string[]) ?? [],
+          universes,
+          // v0.8.0 M3-2C: server JSON 返 snake_case universe_labels
+          // 旧 server 不会返此字段 → undefined,Agent 构造函数 universeLabels?: Record<string, string> 兼容
+          (a as { universe_labels?: Record<string, string> }).universe_labels,
+          (a.trust as number) ?? 0,
+          (a.status as string) ?? "",
+          (a.lastSeen as string) ?? ""
+        );
+      }),
+      total,
+      opts.page ?? 1,
+      pageSize,
+      Math.max(1, Math.ceil(total / pageSize))
     );
   }
 
@@ -92,50 +103,97 @@ export class AgentsService {
   // ---- Single agent ----
 
   async get(name: string): Promise<AgentStatus> {
-    const data = (await this.transport.request(
+    // ★ 2026-11-19:kernel 真实响应是
+    // {"agentId","online":bool,"lastSeen":N,"trust":{...},"circuitState":N}
+    // 旧 SDK 期望 {"name","status","trust":number,"load","circuit"}
+    // ⇒ trust 可能是数字也可能是对象 ⇒ 两种都认。
+    const raw = (await this.transport.request(
       "GET",
       `/registry/agents/${name}/status`
-    )) as {
-      name: string;
-      status: string;
-      trust: number;
-      load?: Partial<AgentLoad>;
-      circuit: string;
-    };
+    )) as Record<string, unknown>;
+
+    const loadData = (raw?.load ?? {}) as Partial<AgentLoad>;
     const load = new AgentLoad(
-      data.load?.activeTasks ?? 0,
-      data.load?.maxCapacity ?? 10,
-      data.load?.cpuUsage ?? 0,
-      data.load?.memoryUsage ?? 0
+      loadData.activeTasks ?? 0,
+      loadData.maxCapacity ?? 10,
+      loadData.cpuUsage ?? 0,
+      loadData.memoryUsage ?? 0
     );
+
+    const trustRaw = raw?.trust;
+    let trust = 0;
+    let trustDetail: Record<string, unknown> = {};
+    if (typeof trustRaw === "number") {
+      trust = trustRaw;
+    } else if (trustRaw && typeof trustRaw === "object") {
+      trustDetail = trustRaw as Record<string, unknown>;
+      const s = (trustRaw as { score?: number }).score;
+      trust = typeof s === "number" ? s : 0;
+    }
+
+    const online = raw?.online === true;
+    const circuitState = typeof raw?.circuitState === "number" ? raw.circuitState : 0;
+    const circuitNames: Record<number, string> = {
+      0: "closed",
+      1: "open",
+      2: "half_open",
+    };
+
+    // status:优先显式字符串,没有才从 online 推导
+    const status =
+      typeof raw?.status === "string" && raw.status
+        ? raw.status
+        : online
+          ? "online"
+          : "offline";
+    // circuit:优先显式字符串,没有才从 circuitState 映射
+    const circuit =
+      typeof raw?.circuit === "string" && raw.circuit
+        ? raw.circuit
+        : (circuitNames[circuitState] ?? String(circuitState));
+
     return new AgentStatus(
-      data.name ?? name,
-      data.status ?? "unknown",
-      data.trust ?? 0,
+      (raw?.agentId as string) ?? (raw?.name as string) ?? name,
+      status,
+      trust,
       load,
-      data.circuit ?? "closed"
+      circuit,
+      (raw?.agentId as string) ?? "",
+      online,
+      typeof raw?.lastSeen === "number" ? raw.lastSeen : 0,
+      trustDetail,
+      circuitState
     );
   }
 
   async score(name: string): Promise<AgentScore> {
-    const data = (await this.transport.request(
+    // ★ 2026-11-19:kernel 返回 {"agentId","totalScore","dimensions":{15 维}}
+    // ⇒ 平铺字段从 dimensions 回填。
+    const raw = (await this.transport.request(
       "GET",
       `/registry/agents/${name}/score`
-    )) as {
-      name: string;
-      totalScore: number;
-      trustScore: number;
-      skillMatch: number;
-      healthScore: number;
-      loadScore: number;
-    };
+    )) as Record<string, unknown>;
+
+    const dimsRaw = raw?.dimensions;
+    const dimensions: Record<string, number> = {};
+    if (dimsRaw && typeof dimsRaw === "object") {
+      for (const [k, v] of Object.entries(dimsRaw as Record<string, unknown>)) {
+        if (typeof v === "number") dimensions[k] = v;
+      }
+    }
+
+    const pick = (key: string): number =>
+      typeof dimensions[key] === "number" ? (dimensions[key] as number) : 0;
+
     return new AgentScore(
-      data.name ?? name,
-      data.totalScore,
-      data.trustScore,
-      data.skillMatch,
-      data.healthScore,
-      data.loadScore
+      (raw?.agentId as string) ?? (raw?.name as string) ?? name,
+      typeof raw?.totalScore === "number" ? raw.totalScore : 0,
+      pick("trustScore"),
+      pick("skillMatch"),
+      pick("healthScore"),
+      pick("loadScore"),
+      (raw?.agentId as string) ?? "",
+      dimensions
     );
   }
 
@@ -148,6 +206,8 @@ export class AgentsService {
       description: req.description ?? "",
       skills: req.skills ?? [],
       universes: req.universes ?? [],
+      // ★ 2026-11-19:带上调用凭证
+      auth_token: req.authToken ?? "",
     });
   }
 
@@ -172,4 +232,24 @@ export class AgentsService {
       memoryUsage: load.memoryUsage,
     });
   }
+}
+
+/**
+ * ★ 2026-11-19:从 agent 列表响应里取出元素数组。
+ *
+ * kernel 的 GET /registry/agents 返回**裸数组**
+ * (实测:[{"id","name","url","version","skills","universe"}, ...]),
+ * 不是 {agents:[...]} ⇒ 旧解析拿不到 agents。
+ * 兼容三种形状:裸数组 / {agents:[...]} / {cards:[...]}。
+ */
+function extractAgentItems(raw: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(raw)) return raw as Array<Record<string, unknown>>;
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    for (const key of ["agents", "cards", "items"]) {
+      const v = obj[key];
+      if (Array.isArray(v)) return v as Array<Record<string, unknown>>;
+    }
+  }
+  return [];
 }

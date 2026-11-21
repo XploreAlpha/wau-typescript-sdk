@@ -40,19 +40,22 @@ describe("Client 主类", () => {
   });
 });
 
-describe("IntentService (P2 stub)", () => {
-  it("recommend 抛 NotImplementedError", async () => {
+describe("IntentService (2026-11-19:从 gRPC stub 改成实装 HTTP)", () => {
+  // ★ 2026-11-19:intent 不再是 stub ⇒ 不再抛 NotImplementedError。
+  // mock-kernel 不可达 ⇒ 抛的是连接/重试错误。
+
+  it("recommend 不再抛 NotImplementedError", async () => {
     const c = new Client("http://mock");
-    await expect(c.intent.recommend("test", 3)).rejects.toThrow(NotImplementedError);
+    await expect(c.intent.recommend("test", 3)).rejects.not.toThrow(NotImplementedError);
   });
 
-  it("parseIntent 抛 NotImplementedError", async () => {
+  it("parseIntent 不再抛 NotImplementedError", async () => {
     const c = new Client("http://mock");
-    await expect(c.intent.parseIntent("test")).rejects.toThrow(NotImplementedError);
+    await expect(c.intent.parseIntent("test")).rejects.not.toThrow(NotImplementedError);
   });
 
-  it("listAgents 抛 NotImplementedError", async () => {
+  it("listAgents 不再抛 NotImplementedError", async () => {
     const c = new Client("http://mock");
-    await expect(c.intent.listAgents(true)).rejects.toThrow(NotImplementedError);
+    await expect(c.intent.listAgents(true)).rejects.not.toThrow(NotImplementedError);
   });
 });

@@ -193,6 +193,8 @@ describe("Transport", () => {
     const t = new Transport("http://mock:18400", {});
     await t.request("GET", "/health");
     expect(capturedUA).toContain("wau-typescript-sdk");
-    expect(capturedUA).toContain("0.6.0-preview.1");
+    // ★ 2026-11-19:UA 里的版本号跟 SDK 版本对齐(v1.4.0)。
+    // 旧断言写死 "0.6.0-preview.1"(2026-06 的 preview 版本号)⇒ 一直是红的。
+    expect(capturedUA).toContain("1.4.0");
   });
 });

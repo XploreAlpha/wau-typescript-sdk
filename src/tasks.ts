@@ -49,7 +49,8 @@ export class TasksService {
         data.decision?.score ?? 0,
         data.decision?.decision_time_ms ?? 0,
         (data.decision?.candidates ?? []).map(
-          (c) => new Candidate(c.name, c.score, c.reason)
+          // ★ 2026-11-19:kernel 的 candidate 带 url 字段
+          (c) => new Candidate(c.name, c.score, c.reason, (c as { url?: string }).url ?? "")
         )
       ),
       data.status ?? "",
@@ -66,24 +67,44 @@ export class TasksService {
     if (req.timeoutMs !== undefined) {
       body.timeoutMs = req.timeoutMs;
     }
+    // ★ 2026-11-19:simulate 端点返回的是 **best_agent / best_score**
+    // (不是 submit 的 selected_agent / score)⇒ 旧解析永远拿到空 agent。
+    // ⇒ 两个名字都读,统一归一到 selected_agent / score。
     const data = (await this.transport.request(
       "POST",
       "/registry/tasks/simulate",
       body
-    )) as {
-      selected_agent: string;
-      score: number;
-      decision_time_ms: number;
-      candidates?: Array<{ name: string; score: number; reason: string }>;
-    };
-    const candidates: Candidate[] = (data.candidates ?? []).map(
-      (c) => new Candidate(c.name, c.score, c.reason)
+    )) as Record<string, unknown>;
+
+    const candidates: Candidate[] = (
+      (data?.candidates as Array<Record<string, unknown>>) ?? []
+    ).map(
+      (c) =>
+        new Candidate(
+          (c.name as string) ?? "",
+          (c.score as number) ?? 0,
+          (c.reason as string) ?? "",
+          (c.url as string) ?? ""
+        )
     );
+
+    const bestAgent = (data?.best_agent as string) ?? "";
+    const bestScore = (data?.best_score as number) ?? 0;
+    const selectedAgent =
+      (data?.selected_agent as string) ?? bestAgent;
+    const score = (data?.score as number) ?? bestScore;
+
     return new DecisionInfo(
-      data.selected_agent ?? "",
-      data.score ?? 0,
-      data.decision_time_ms ?? 0,
-      candidates
+      selectedAgent,
+      score,
+      (data?.decision_time_ms as number) ?? 0,
+      candidates,
+      bestAgent,
+      bestScore,
+      (data?.url as string) ?? "",
+      (data?.reason as string) ?? "",
+      (data?.skills as string[]) ?? [],
+      (data?.intent_source as string) ?? ""
     );
   }
 

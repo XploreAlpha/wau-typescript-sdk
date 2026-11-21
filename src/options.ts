@@ -74,6 +74,6 @@ export interface ClientOptions {
   retry?: RetryConfig;
   circuit?: CircuitConfig;
   auth?: AuthConfig;
-  userAgent?: string; // default "wau-typescript-sdk/0.6.0-preview.1"
+  userAgent?: string; // default "wau-typescript-sdk/1.4.0"
   transport?: unknown; // axios 注入点(测试/代理)
 }

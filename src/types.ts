@@ -71,7 +71,14 @@ export class AgentRegisterRequest {
     public skills: string[] = [],
     public universes: string[] = [],
     // universeLabels 跟 Agent.universeLabels 字段语义一致(v0.8.0 M3-2C 新增)
-    public universeLabels?: Record<string, string>
+    public universeLabels?: Record<string, string>,
+    /**
+     * ★ 2026-11-19:注册时携带**调用凭证**。
+     *
+     * kernel 取候选时需要它拼 Authorization 头去调边缘 agent
+     * (registry 的注册 = 整卡覆盖写,不带 token 就没有 token)。
+     */
+    public authToken: string = ""
   ) {}
 }
 
@@ -82,7 +89,11 @@ export class AgentScore {
     public trustScore: number = 0,
     public skillMatch: number = 0,
     public healthScore: number = 0,
-    public loadScore: number = 0
+    public loadScore: number = 0,
+    /** ★ 2026-11-19:kernel 真实响应字段 */
+    public agentId: string = "",
+    /** ★ 2026-11-19:kernel 返回的是**嵌套 dimensions** 结构 */
+    public dimensions: Record<string, number> = {}
   ) {}
 }
 
@@ -101,7 +112,13 @@ export class AgentStatus {
     public status: string = "",
     public trust: number = 0,
     public load: AgentLoad = new AgentLoad(),
-    public circuit: string = "closed"
+    public circuit: string = "closed",
+    /** ★ 2026-11-19:kernel 真实响应字段 */
+    public agentId: string = "",
+    public online: boolean = false,
+    public lastSeen: number = 0,
+    public trustDetail: Record<string, unknown> = {},
+    public circuitState: number = 0
   ) {}
 }
 
@@ -135,7 +152,9 @@ export class Candidate {
   constructor(
     public name: string = "",
     public score: number = 0,
-    public reason: string = ""
+    public reason: string = "",
+    /** ★ 2026-11-19:kernel 的 candidate 元素带 url */
+    public url: string = ""
   ) {}
 }
 
@@ -144,7 +163,14 @@ export class DecisionInfo {
     public selected_agent: string = "",
     public score: number = 0,
     public decision_time_ms: number = 0,
-    public candidates: Candidate[] = []
+    public candidates: Candidate[] = [],
+    // ★ 2026-11-19:simulate 端点的原始字段(它返回 best_agent/best_score)
+    public best_agent: string = "",
+    public best_score: number = 0,
+    public url: string = "",
+    public reason: string = "",
+    public skills: string[] = [],
+    public intent_source: string = ""
   ) {}
 }
 

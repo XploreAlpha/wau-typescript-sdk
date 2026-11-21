@@ -70,7 +70,8 @@ export {
 export { AgentsService } from "./agents";
 export { ChatService } from "./chat";  // v0.9.0 M3 §3.7
 export { HandshakeService } from "./handshake";  // v0.8.0 M5-1 B.1
-export { IntentService } from "./intent";
+export { IntentService, IntentEntry, IntentAgentScore } from "./intent";
+export { A2AClient, METHOD_SEND_MESSAGE, A2A_PROTOCOL_VERSION, extractA2AText } from "./a2a";
 export { KernelService } from "./kernel";
 export { TasksService } from "./tasks";
 

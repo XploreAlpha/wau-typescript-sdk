@@ -8,7 +8,11 @@ describe("homerail import compat (per SDK Consumer Contract §三)", () => {
     const sdk = await import("../wau-typescript-sdk/dist/index.js");
     expect(typeof sdk.WauClient).toBe("function");
     expect(typeof sdk.WauWorkflowError).toBe("function");
-    expect(sdk.WAU_DEFAULT_USER_AGENT).toBe("wau-typescript-sdk/wau/v1.3.1");
+    // ★ 2026-11-19:断言对齐源码的**真实值**。
+    // 旧断言写死 "wau-typescript-sdk/wau/v1.3.1",但源码在
+    // v1.3.2 RPC full unlock 时就改成了 v1.3.2
+    // (commit fa11394,CHANGELOG.md:103 有记录)⇒ 断言一直是红的。
+    expect(sdk.WAU_DEFAULT_USER_AGENT).toBe("wau-typescript-sdk/wau/v1.3.2");
   });
 
   it("imports from 'wau-sdk/wau' subpath", async () => {
